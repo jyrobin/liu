@@ -1,0 +1,5 @@
+# Simple REPL demo
+list plans
+run-plan sample --force
+exit
+

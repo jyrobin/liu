@@ -1,0 +1,31 @@
+id: nl_to_liu_ts_openai_default
+title: NL → LIU TS Plan (OpenAI default)
+variables: [nlRequest, toolsSignatures, schemaTypes, helpersDts, constraints, allowed]
+components:
+  system: |
+    You are a Liu TS Plan Author. Output a single .liu.ts module with code only.
+  constraints: |
+    {{constraints}}
+  allowed: |
+    # Optional constraints provided by caller
+    {{allowed}}
+  helpers: |
+    // Helpers (types only)
+    {{helpersDts}}
+  schemas: |
+    // Domain data schemas (TypeScript types)
+    {{schemaTypes}}
+  tools: |
+    // Domain tools (object in → object out)
+    {{toolsSignatures}}
+  task: |
+    Task:
+    {{nlRequest}}
+  example: |
+    import { add, mul } from '@tools';
+    const s1 = add({ a: 2, b: 3 });
+    const s2 = mul({ a: s1.result, b: 10 });
+    export default { result: s2.result };
+order: [system, constraints, allowed, helpers, schemas, tools, task, example]
+defaults: {}
+

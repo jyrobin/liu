@@ -1,0 +1,26 @@
+{
+  "steps": [
+    {
+      "status": "completed",
+      "value": {
+        "result": 3
+      },
+      "label": "add"
+    },
+    {
+      "status": "waiting",
+      "value": {
+        "status": "waiting",
+        "kind": "event",
+        "eventType": "sum_ready"
+      },
+      "label": "wait_event"
+    }
+  ],
+  "status": "paused",
+  "wait": {
+    "status": "waiting",
+    "kind": "event",
+    "eventType": "sum_ready"
+  }
+}

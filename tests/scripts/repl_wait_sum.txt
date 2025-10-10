@@ -1,0 +1,5 @@
+# REPL script to test pause/resume/continue
+run-plan wait_sum --run-id wait2 --backend file --force
+resume wait2 {"value":5}
+continue-plan wait_sum --run-id wait2 --backend file
+exit

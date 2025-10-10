@@ -1,0 +1,33 @@
+{
+  "name": "@liugent/liu",
+  "version": "0.1.0",
+  "description": "Liu TS: a constrained TypeScript authoring subset with a sandboxed runtime and CLI",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": {
+      "import": "./src/index.js"
+    }
+  },
+  "bin": {
+    "liu": "./bin/liu.js"
+  },
+  "scripts": {
+    "start": "node bin/liu.js --help",
+    "lint": "echo 'no lint configured'",
+    "format": "echo 'no format configured'",
+    "test": "node tests/run-inmemory-test.js",
+    "e2e": "bash tests/cli-stepping-test.sh && bash tests/repl-stepping-test.sh"
+  },
+  "keywords": ["liu", "typescript", "sandbox", "workflow", "plans"],
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18"
+  },
+  "optionalDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0"
+  }
+}
