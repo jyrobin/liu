@@ -7,7 +7,19 @@ import { InMemoryStateStore } from './state.js';
 // Minimal runtime: validate, compile, and execute in a sandboxed context
 // Note: This initial runtime does not implement step-level persistence.
 
-export async function runLiuPlanSource(source, { tools = {} } = {}) {
+// Optional observer interface (all callbacks are optional):
+// {
+//   onStart?: (info) => void,
+//   onStepStart?: ({ index, label, replay }) => void,
+//   onStepComplete?: ({ index, label, value }) => void,
+//   onStepWait?: ({ index, label, wait }) => void,
+//   onStepError?: ({ index, label, error }) => void,
+//   onPaused?: ({ wait, state }) => void,
+//   onDone?: ({ result, state }) => void,
+//   onRunError?: ({ error, state }) => void
+// }
+
+export async function runLiuPlanSource(source, { tools = {}, observer = null } = {}) {
   const validation = validateLiuSource(source);
   if (!validation.valid) {
     return { success: false, error: 'Validation failed', validation };
@@ -22,11 +34,20 @@ export async function runLiuPlanSource(source, { tools = {} } = {}) {
   };
   vm.createContext(context, { name: 'liu-plan-context' });
   try {
+    if (observer && typeof observer.onStart === 'function') {
+      try { observer.onStart({ mode: 'ephemeral' }); } catch (_) {}
+    }
     const script = new vm.Script(code, { filename: 'inline.liu.ts' });
     script.runInContext(context, { timeout: 1000 });
     const result = context.__LIU_RESULT__;
+    if (observer && typeof observer.onDone === 'function') {
+      try { observer.onDone({ result, state: null }); } catch (_) {}
+    }
     return { success: true, result, validation };
   } catch (e) {
+    if (observer && typeof observer.onRunError === 'function') {
+      try { observer.onRunError({ error: String(e?.message || e), state: null }); } catch (_) {}
+    }
     return { success: false, error: e?.message || String(e), validation };
   }
 }
@@ -69,7 +90,7 @@ function makeWrappedBindings(tools, includeHelpers = true) {
 }
 
 // Run with simple step-level persistence using a StateStore (in-memory or file-based)
-export async function runLiuPlanPersisted(source, { tools = {}, store = null, planId = 'plan', timeoutMs = 2000 } = {}) {
+export async function runLiuPlanPersisted(source, { tools = {}, store = null, planId = 'plan', timeoutMs = 2000, observer = null } = {}) {
   const validation = validateLiuSource(source);
   if (!validation.valid) {
     return { success: false, error: 'Validation failed', validation };
@@ -91,20 +112,33 @@ export async function runLiuPlanPersisted(source, { tools = {}, store = null, pl
       const S = this.__LIU_CTX__ || context.__LIU_CTX__;
       const idx = ++S.stepCursor;
       const rec = S.steps[idx];
-      if (rec && rec.status === 'completed') return rec.value;
+      const replay = !!(rec && rec.status === 'completed');
+      if (!replay && observer && typeof observer.onStepStart === 'function') {
+        try { observer.onStepStart({ index: idx, label, replay: false }); } catch (_) {}
+      }
+      if (replay) return rec.value;
       try {
         const val = fn();
         if (val && typeof val === 'object' && val.status === 'waiting') {
           S.paused = true;
           S.pauseReason = val;
           S.steps[idx] = { status: 'waiting', value: val, label };
+          if (observer && typeof observer.onStepWait === 'function') {
+            try { observer.onStepWait({ index: idx, label, wait: val }); } catch (_) {}
+          }
           throw new PauseSignal({ index: idx, label, wait: val });
         }
         S.steps[idx] = { status: 'completed', value: val, label };
+        if (observer && typeof observer.onStepComplete === 'function') {
+          try { observer.onStepComplete({ index: idx, label, value: val }); } catch (_) {}
+        }
         return val;
       } catch (e) {
         if (e && e.__LIU_PAUSE__) throw e;
         S.steps[idx] = { status: 'failed', error: String(e?.message || e), label };
+        if (observer && typeof observer.onStepError === 'function') {
+          try { observer.onStepError({ index: idx, label, error: String(e?.message || e) }); } catch (_) {}
+        }
         throw e;
       }
     }
@@ -129,21 +163,33 @@ export async function runLiuPlanPersisted(source, { tools = {}, store = null, pl
   context.__LIU_HELPERS__ = helpers;
 
   try {
+    if (observer && typeof observer.onStart === 'function') {
+      try { observer.onStart({ mode: 'persisted', planId, previousSteps: context.__LIU_CTX__.steps.length }); } catch (_) {}
+    }
     const script = new vm.Script(code, { filename: 'inline.liu.ts' });
     script.runInContext(context, { timeout: timeoutMs });
     // Completed
     const result = context.__LIU_RESULT__;
     const toSave = { steps: context.__LIU_CTX__.steps, status: 'completed', result };
     await stateStore.save(planId, toSave);
+    if (observer && typeof observer.onDone === 'function') {
+      try { observer.onDone({ result, state: toSave }); } catch (_) {}
+    }
     return { success: true, result, paused: false, state: toSave };
   } catch (e) {
     if (e && e.__LIU_PAUSE__) {
       const toSave = { steps: context.__LIU_CTX__.steps, status: 'paused', wait: e.info?.wait };
       await stateStore.save(planId, toSave);
+      if (observer && typeof observer.onPaused === 'function') {
+        try { observer.onPaused({ wait: e.info?.wait, state: toSave }); } catch (_) {}
+      }
       return { success: false, paused: true, wait: e.info?.wait, state: toSave };
     }
     const toSave = { steps: context.__LIU_CTX__.steps, status: 'failed', error: String(e?.message || e) };
     await stateStore.save(planId, toSave);
+    if (observer && typeof observer.onRunError === 'function') {
+      try { observer.onRunError({ error: String(e?.message || e), state: toSave }); } catch (_) {}
+    }
     return { success: false, error: String(e?.message || e), paused: false, state: toSave };
   }
 }

@@ -1,0 +1,11 @@
+{
+  "active": "aapl-demo",
+  "byName": {
+    "aapl-demo": {
+      "sessionId": "sess_1760192645978_be5de4m6vh",
+      "serverUrl": "http://localhost:5180",
+      "title": "AAPL OHLC (Past Month)",
+      "createdAt": 1760192645991
+    }
+  }
+}

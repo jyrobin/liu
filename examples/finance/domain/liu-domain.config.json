@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "paths": {
+    "plans": "plans",
+    "tools": "tools/index.js",
+    "types": "types",
+    "schemas": "schemas"
+  }
+}
+
