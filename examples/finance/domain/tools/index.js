@@ -121,3 +121,21 @@ export function fetchDailyOHLC({ symbol = 'AAPL', period = '1M' }) {
   const rows = JSON.parse(text);
   return { symbol, period, rows };
 }
+
+// --- WinBox window tools ---
+export function uiOpenWindow({ sessionId, title, x, y, width, height, top, right, bottom, left, className, html }) {
+  const map = getActiveMappingSync(sessionId);
+  const block = { kind: 'winbox', title: title || 'Window', x, y, width, height, top, right, bottom, left, className, html };
+  postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block });
+  return { ok: true };
+}
+
+export function uiOpenWindows({ sessionId, windows }) {
+  const map = getActiveMappingSync(sessionId);
+  if (!Array.isArray(windows)) return { ok: false };
+  for (const w of windows) {
+    const block = { kind: 'winbox', ...(w || {}) };
+    postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block });
+  }
+  return { ok: true };
+}

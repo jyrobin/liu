@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Liu UI (ESM) — Vite Demo</title>
+    <link rel="stylesheet" href="../../../../refs/winbox/dist/css/winbox.min.css" />
+    <link rel="stylesheet" href="../../../../refs/winbox/dist/css/themes/white.min.css" />
+    <style>
+      html, body { height: 100%; margin: 0; padding: 0; }
+      body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+      #desktop { height: 100vh; width: 100vw; background: #f6f8fb; overflow: hidden; position: relative; }
+      .toolbar { position: fixed; top: 8px; left: 8px; z-index: 10000; }
+      .toolbar button { margin-right: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div id="desktop"></div>
+    <div class="toolbar">
+      <button data-action="open-screener">Open Screener</button>
+      <button data-action="open-chart">Open Chart</button>
+      <button data-action="open-filings">Open Filings</button>
+      <button data-action="tile">Tile</button>
+    </div>
+
+    <!-- WinBox (global) -->
+    <script src="../../../../refs/winbox/dist/winbox.bundle.min.js"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+  </html>
+

@@ -41,6 +41,7 @@ function handleBlock(b) {
   if (b.kind === 'text') return block(b.title || 'Text', b.text || '');
   if (b.kind === 'table') return block(b.title || 'Table', b.rows || []);
   if (b.kind === 'chart') return renderChart(b.spec || {}, b.data || null);
+  if (b.kind === 'winbox') return openWinBox(b);
   return block('Block', b);
 }
 
@@ -74,4 +75,23 @@ async function refreshSessions() {
     if (!items.length) { listEl.innerHTML = '<div class="hint">No sessions yet.</div>'; return; }
     listEl.innerHTML = '<div class="hint">Sessions:</div>' + items.map(s => `<div><a href="?sessionId=${encodeURIComponent(s.sessionId)}">${s.title || s.sessionId}</a> <span class="hint">(${new Date(s.updatedAt).toLocaleString()})</span></div>`).join('');
   } catch (e) { /* ignore */ }
+}
+
+// --- WinBox support ---
+function openWinBox(opts) {
+  if (typeof WinBox === 'undefined') return block('WinBox missing', 'WinBox library not loaded');
+  const {
+    id,
+    title = 'Window',
+    x, y, width, height,
+    top, right, bottom, left,
+    className,
+    html,
+  } = opts || {};
+  try {
+    const wb = WinBox.new({ id, title, x, y, width, height, top, right, bottom, left, class: className });
+    if (html) wb.body.innerHTML = String(html);
+  } catch (e) {
+    return block('WinBox error', String(e?.message || e));
+  }
 }

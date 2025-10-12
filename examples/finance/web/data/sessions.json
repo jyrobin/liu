@@ -1,10 +1,17 @@
 {
   "sessions": {
-    "sess_1760192645978_be5de4m6vh": {
-      "sessionId": "sess_1760192645978_be5de4m6vh",
+    "sess_1760282100088_yhmexvn0pc": {
+      "sessionId": "sess_1760282100088_yhmexvn0pc",
       "title": "AAPL OHLC (Past Month)",
-      "createdAt": 1760192645979,
-      "updatedAt": 1760193060319,
+      "createdAt": 1760282100088,
+      "updatedAt": 1760282100105,
+      "deleted": false
+    },
+    "sess_1760282230913_subgxi5cf9": {
+      "sessionId": "sess_1760282230913_subgxi5cf9",
+      "title": "demo",
+      "createdAt": 1760282230913,
+      "updatedAt": 1760282230971,
       "deleted": false
     }
   }

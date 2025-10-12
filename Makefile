@@ -61,7 +61,28 @@ finance-session-ohlc-active:
 	FINANCE_SESSION_STORE=$(PWD)/examples/finance/workspace/.finance-sessions.json \
 	node bin/liu.js --domain-root examples/finance/domain run-plan ohlc_chart_active --workspace examples/finance/workspace --run-id ohlc_active --force
 
+.PHONY: finance-session-winbox
+finance-session-winbox:
+	FINANCE_WEB_URL=http://localhost:5180 \
+	FINANCE_SESSION_STORE=$(PWD)/examples/finance/workspace/.finance-sessions.json \
+	node bin/liu.js --domain-root examples/finance/domain run-plan winbox_windows --workspace examples/finance/workspace --run-id winbox_demo --force
+
+.PHONY: finance-session-winbox-chart
+finance-session-winbox-chart:
+	FINANCE_WEB_URL=http://localhost:5180 \
+	FINANCE_SESSION_STORE=$(PWD)/examples/finance/workspace/.finance-sessions.json \
+	node bin/liu.js --domain-root examples/finance/domain run-plan winbox_and_chart --workspace examples/finance/workspace --run-id winbox_chart --force
+
 .PHONY: finance-session-delete
 finance-session-delete:
 	@echo Deleting session: $(SID)
 	@curl -s -X POST http://localhost:5180/api/session/delete -H 'content-type: application/json' -d '{"sessionId":"$(SID)"}' | jq .
+
+# --- Full finance (top-level) ---
+.PHONY: finance-full-web
+finance-full-web:
+	node finance/server/server.js
+
+.PHONY: finance-full-list-sessions
+finance-full-list-sessions:
+	@curl -s http://localhost:5280/api/sessions | jq .

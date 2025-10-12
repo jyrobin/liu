@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finance Windows Demo (WinBox + React)</title>
+    <link rel="stylesheet" href="../../../../refs/winbox/dist/css/winbox.min.css" />
+    <link rel="stylesheet" href="../../../../refs/winbox/dist/css/themes/white.min.css" />
+    <style>
+      html, body { height: 100%; margin: 0; padding: 0; }
+      body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+      #desktop {
+        height: 100vh;
+        width: 100vw;
+        background: #f6f8fb;
+        overflow: hidden;
+        position: relative;
+      }
+      .toolbar { position: fixed; top: 8px; left: 8px; z-index: 10000; }
+      .toolbar button { margin-right: 8px; }
+      .panel { padding: 12px; }
+      .panel h3 { margin: 0 0 12px; font-weight: 600; }
+      .muted { color: #667085; font-size: 12px; }
+      .kpi { display: flex; gap: 16px; }
+      .kpi div { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 16px; }
+      .table { border-collapse: collapse; width: 100%; background: #fff; }
+      .table th, .table td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; text-align: left; }
+    </style>
+  </head>
+  <body>
+    <div id="desktop"></div>
+
+    <div class="toolbar">
+      <button id="openChart">Open Chart</button>
+      <button id="openOrderBook">Open Order Book</button>
+      <button id="openMetrics">Open Metrics</button>
+      <button id="openMUI">Open MUI Demo</button>
+      <button id="tile">Tile</button>
+      <span class="muted">Windows demo — drag, resize, min/max</span>
+    </div>
+
+    <!-- Local WinBox bundle -->
+    <script src="../../../../refs/winbox/dist/winbox.bundle.min.js"></script>
+
+    <!-- React/ReactDOM (local-first, then CDN fallback) -->
+    <!-- Download targets to ./vendor/:
+         - react.development.js (or react.production.min.js)
+         - react-dom.development.js (or react-dom.production.min.js)
+    -->
+    <script src="./vendor/react.development.js"
+            onerror="this.onerror=null; this.src='https://unpkg.com/react@18/umd/react.development.js'">
+    </script>
+    <script src="./vendor/react-dom.development.js"
+            onerror="this.onerror=null; this.src='https://unpkg.com/react-dom@18/umd/react-dom.development.js'">
+    </script>
+
+    <!-- Emotion + MUI (try local vendor first, then fallback to CDN). -->
+    <!-- Download targets (place under ./vendor/):
+         - emotion-react.umd.min.js
+         - emotion-styled.umd.min.js
+         - material-ui.development.js (MUI v5 UMD)
+    -->
+    <script src="./vendor/emotion-react.umd.min.js"
+            onerror="this.onerror=null; this.src='https://unpkg.com/@emotion/react@11/dist/emotion-react.umd.min.js'">
+    </script>
+    <script src="./vendor/emotion-styled.umd.min.js"
+            onerror="this.onerror=null; this.src='https://unpkg.com/@emotion/styled@11/dist/emotion-styled.umd.min.js'">
+    </script>
+    <script src="./vendor/material-ui.development.js"
+            onerror="this.onerror=null; this.src='https://unpkg.com/@mui/material@5.15.14/umd/material-ui.development.js'">
+    </script>
+    <script>
+      // If MaterialUI global is still missing, try the alternate filename used by some distributions.
+      (function () {
+        if (!window.MaterialUI) {
+          var s = document.createElement('script');
+          s.src = './vendor/material.development.js';
+          s.onload = function(){ console.log('[demo] Loaded alternate MUI UMD (material.development.js)'); };
+          s.onerror = function(){ console.warn('[demo] Alternate MUI UMD not found.'); };
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
+
+    <!-- Liu UI wrapper (UMD) and demo app -->
+    <script src="../../../../liu-ui/liu-ui.umd.js"></script>
+    <script src="./app.js"></script>
+  </body>
+  </html>

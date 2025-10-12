@@ -8,8 +8,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = Number(process.env.PORT || 5180);
-const DATA_DIR = path.join(__dirname, 'data');
+const PORT = Number(process.env.PORT || 5280);
+const WEB_ROOT = path.join(__dirname, '..', 'web', 'public');
+const DATA_DIR = path.join(__dirname, '..', 'data');
 const SESS_DIR = path.join(DATA_DIR, 'sessions');
 const SESS_INDEX = path.join(DATA_DIR, 'sessions.json');
 
@@ -23,39 +24,22 @@ async function ensureDataDirs() {
   }
 }
 
-async function loadIndex() {
-  try { const t = await fs.readFile(SESS_INDEX, 'utf8'); return JSON.parse(t); }
-  catch { return { sessions: {} }; }
-}
-
+async function loadIndex() { try { const t = await fs.readFile(SESS_INDEX, 'utf8'); return JSON.parse(t); } catch { return { sessions: {} }; } }
 async function saveIndex(idx) { await fs.writeFile(SESS_INDEX, JSON.stringify(idx, null, 2)); }
+async function loadSessionFile(id) { try { const t = await fs.readFile(path.join(SESS_DIR, `${id}.json`), 'utf8'); return JSON.parse(t); } catch { return null; } }
+async function saveSessionFile(id, obj) { await fs.writeFile(path.join(SESS_DIR, `${id}.json`), JSON.stringify(obj, null, 2)); }
 
-async function loadSessionFile(id) {
-  const p = path.join(SESS_DIR, `${id}.json`);
-  try { const t = await fs.readFile(p, 'utf8'); return JSON.parse(t); }
-  catch { return null; }
-}
-
-async function saveSessionFile(id, obj) {
-  const p = path.join(SESS_DIR, `${id}.json`);
-  await fs.writeFile(p, JSON.stringify(obj, null, 2));
-}
-
-function getSession(id) {
-  if (!sessions.has(id)) sessions.set(id, { meta: null, blocks: [], clients: new Set() });
-  return sessions.get(id);
-}
+function getSession(id) { if (!sessions.has(id)) sessions.set(id, { meta: null, blocks: [], clients: new Set() }); return sessions.get(id); }
 
 async function initSession({ id, title }) {
   const now = Date.now();
   const meta = { sessionId: id, title: title || '', createdAt: now, updatedAt: now, deleted: false };
-  const rec = { meta, blocks: [] };
-  sessions.set(id, { ...rec, clients: new Set() });
+  sessions.set(id, { meta, blocks: [], clients: new Set() });
   const idx = await loadIndex();
   idx.sessions[id] = { sessionId: id, title: meta.title, createdAt: meta.createdAt, updatedAt: meta.updatedAt, deleted: false };
   await saveIndex(idx);
-  await saveSessionFile(id, rec);
-  return rec;
+  await saveSessionFile(id, { meta, blocks: [] });
+  return { meta, blocks: [] };
 }
 
 async function ensureLoaded(id) {
@@ -74,44 +58,28 @@ function sseSend(res, event, data) {
 
 async function appendBlock(sessionId, block) {
   let s = await ensureLoaded(sessionId);
-  if (!s) {
-    s = await initSession({ id: sessionId, title: block?.title || '' });
-  }
+  if (!s) s = await initSession({ id: sessionId, title: block?.title || '' });
   const b = { id: `${Date.now()}_${Math.random().toString(36).slice(2)}`, ts: Date.now(), ...block };
   s.blocks.push(b);
   s.meta.updatedAt = b.ts;
   await saveSessionFile(sessionId, { meta: s.meta, blocks: s.blocks });
   const idx = await loadIndex();
   if (idx.sessions[sessionId]) { idx.sessions[sessionId].updatedAt = s.meta.updatedAt; await saveIndex(idx); }
-  for (const res of s.clients) {
-    try { sseSend(res, 'block', b); } catch { /* ignore */ }
-  }
+  for (const res of s.clients) { try { sseSend(res, 'block', b); } catch {} }
   return b;
 }
 
-async function readJson(req) {
-  const chunks = [];
-  for await (const c of req) chunks.push(c);
-  const text = Buffer.concat(chunks).toString('utf8');
-  if (!text) return {};
-  try { return JSON.parse(text); } catch { return {}; }
-}
-
+async function readJson(req) { const chunks = []; for await (const c of req) chunks.push(c); const t = Buffer.concat(chunks).toString('utf8'); try { return t ? JSON.parse(t) : {}; } catch { return {}; } }
 function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); }
 function notFound(res) { res.writeHead(404); res.end('Not found'); }
 
 function serveStatic(req, res, pathname) {
-  const root = path.join(__dirname, 'public');
   const file = pathname === '/' ? '/index.html' : pathname;
-  const p = path.join(root, file.replace(/^\/+/, ''));
-  if (!p.startsWith(root)) return notFound(res);
+  const p = path.join(WEB_ROOT, file.replace(/^\/+/, ''));
+  if (!p.startsWith(WEB_ROOT)) return notFound(res);
   const ext = path.extname(p).toLowerCase();
   const type = ext === '.html' ? 'text/html' : ext === '.js' ? 'text/javascript' : ext === '.css' ? 'text/css' : 'text/plain';
-  fssync.readFile(p, (err, buf) => {
-    if (err) { notFound(res); return; }
-    res.writeHead(200, { 'Content-Type': type });
-    res.end(buf);
-  });
+  fssync.readFile(p, (err, buf) => { if (err) { notFound(res); return; } res.writeHead(200, { 'Content-Type': type }); res.end(buf); });
 }
 
 await ensureDataDirs();
@@ -120,26 +88,24 @@ const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://${req.headers.host}`);
   const { pathname } = urlObj;
   try {
-    // Serve WinBox assets from repo refs to avoid copying
+    // WinBox assets from refs
     if (req.method === 'GET' && pathname.startsWith('/_refs/winbox/')) {
       const rel = pathname.replace('/_refs/winbox/', '');
-      const base = path.join(__dirname, '../../..', 'refs', 'winbox', 'dist');
+      const base = path.join(__dirname, '..', '..', 'refs', 'winbox', 'dist');
       const p = path.join(base, rel);
       if (!p.startsWith(base)) return notFound(res);
       const ext = path.extname(p).toLowerCase();
       const type = ext === '.html' ? 'text/html' : ext === '.js' ? 'text/javascript' : ext === '.css' ? 'text/css' : 'application/octet-stream';
-      fssync.readFile(p, (err, buf) => {
-        if (err) { notFound(res); return; }
-        res.writeHead(200, { 'Content-Type': type });
-        res.end(buf);
-      });
+      fssync.readFile(p, (err, buf) => { if (err) { notFound(res); return; } res.writeHead(200, { 'Content-Type': type }); res.end(buf); });
       return;
     }
+    // sessions list
     if (req.method === 'GET' && pathname === '/api/sessions') {
       const idx = await loadIndex();
       const items = Object.values(idx.sessions).filter(s => !s.deleted).sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
       return json(res, 200, { sessions: items });
     }
+    // init session
     if (req.method === 'POST' && pathname === '/api/session/init') {
       const body = await readJson(req);
       const sid = String(body.sessionId || `sess_${Date.now()}_${Math.random().toString(36).slice(2)}`);
@@ -149,6 +115,7 @@ const server = http.createServer(async (req, res) => {
       const s = await ensureLoaded(sid);
       return json(res, 200, { ok: true, sessionId: sid, title: s?.meta?.title || title });
     }
+    // append block
     if (req.method === 'POST' && pathname === '/api/append') {
       const body = await readJson(req);
       const sessionId = String(body.sessionId || '').trim();
@@ -157,53 +124,24 @@ const server = http.createServer(async (req, res) => {
       const saved = await appendBlock(sessionId, block);
       return json(res, 200, { ok: true, block: saved });
     }
-    if (req.method === 'POST' && pathname === '/api/reset') {
-      const body = await readJson(req);
-      const sessionId = String(body.sessionId || '').trim();
-      if (!sessionId) return json(res, 400, { error: 'sessionId required' });
-      const s = getSession(sessionId);
-      sessions.set(sessionId, { meta: s.meta || { sessionId, title: '', createdAt: Date.now(), updatedAt: Date.now(), deleted: false }, blocks: [], clients: new Set() });
-      await saveSessionFile(sessionId, { meta: sessions.get(sessionId).meta, blocks: [] });
-      return json(res, 200, { ok: true });
-    }
-    if (req.method === 'POST' && pathname === '/api/session/delete') {
-      const body = await readJson(req);
-      const sessionId = String(body.sessionId || '').trim();
-      if (!sessionId) return json(res, 400, { error: 'sessionId required' });
-      const idx = await loadIndex();
-      if (!idx.sessions[sessionId]) return json(res, 404, { error: 'not found' });
-      idx.sessions[sessionId].deleted = true;
-      await saveIndex(idx);
-      const sess = await ensureLoaded(sessionId);
-      if (sess && sess.meta) { sess.meta.deleted = true; await saveSessionFile(sessionId, { meta: sess.meta, blocks: sess.blocks }); }
-      return json(res, 200, { ok: true });
-    }
+    // stream
     if (req.method === 'GET' && pathname === '/api/stream') {
       const sessionId = urlObj.searchParams.get('sessionId');
       if (!sessionId) { res.writeHead(400); res.end('sessionId required'); return; }
-      res.writeHead(200, {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
-      });
+      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive', 'Access-Control-Allow-Origin': '*' });
       const s = await ensureLoaded(sessionId) || getSession(sessionId);
-      // Replay from disk (if any)
       const disk = await loadSessionFile(sessionId);
       const blocks = disk?.blocks || s.blocks || [];
       for (const b of blocks) sseSend(res, 'block', b);
-      // Subscribe
-      s.clients.add(res);
-      req.on('close', () => { s.clients.delete(res); });
+      s.clients.add(res); req.on('close', () => { s.clients.delete(res); });
       return;
     }
-    // Static
+    // static
     return serveStatic(req, res, pathname);
   } catch (e) {
     json(res, 500, { error: String(e?.message || e) });
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`Finance Web listening on http://localhost:${PORT}`);
-});
+server.listen(PORT, () => { console.log(`Finance (full) listening on http://localhost:${PORT}`); });
+
