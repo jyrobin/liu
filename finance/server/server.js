@@ -99,6 +99,37 @@ const server = http.createServer(async (req, res) => {
       fssync.readFile(p, (err, buf) => { if (err) { notFound(res); return; } res.writeHead(200, { 'Content-Type': type }); res.end(buf); });
       return;
     }
+    // run a Liu plan via CLI
+    if (req.method === 'POST' && pathname === '/api/run-plan') {
+      const body = await readJson(req);
+      const plan = String(body.plan || '').trim();
+      if (!plan) return json(res, 400, { error: 'plan required' });
+      const sessionId = String(body.sessionId || '').trim();
+      const name = String(body.name || 'web');
+      const title = String(body.title || 'Web Triggered');
+      const workspace = path.resolve(__dirname, '..', 'workspace');
+      const baseUrl = `http://${req.headers.host}`;
+      // spawn: node ../../bin/liu.js --domain-root finance/domain run-plan <plan> --workspace ... --run-id ... --force
+      const cli = path.resolve(__dirname, '..', '..', 'bin', 'liu.js');
+      const args = [cli, '--domain-root', path.resolve(__dirname, '..', 'domain'), 'run-plan', plan, '--workspace', workspace, '--run-id', `web_${Date.now()}`, '--force'];
+      const env = { ...process.env, FINANCE_WEB_URL: baseUrl, FINANCE_SESSION_STORE: path.resolve(__dirname, '..', 'workspace', '.finance-sessions.json'), FIN_SESSION_NAME: name, FIN_SESSION_TITLE: title };
+      if (sessionId) env.FIN_SESSION_ID = sessionId;
+      try {
+        if (sessionId) {
+          await appendBlock(sessionId, { kind: 'text', title: 'Run Plan', text: `Launching plan: ${plan}` });
+        }
+        const { spawn } = await import('node:child_process');
+        const child = spawn(process.execPath, args, { env, stdio: 'ignore', detached: false });
+        child.on('exit', async (code) => {
+          try {
+            if (sessionId) await appendBlock(sessionId, { kind: 'text', title: 'Plan Finished', text: `Plan ${plan} exited with code ${code}` });
+          } catch {}
+        });
+        return json(res, 200, { ok: true });
+      } catch (e) {
+        return json(res, 500, { error: String(e?.message || e) });
+      }
+    }
     // sessions list
     if (req.method === 'GET' && pathname === '/api/sessions') {
       const idx = await loadIndex();
@@ -124,6 +155,43 @@ const server = http.createServer(async (req, res) => {
       const saved = await appendBlock(sessionId, block);
       return json(res, 200, { ok: true, block: saved });
     }
+    // remove a specific window (by block id) and notify clients
+    if (req.method === 'POST' && pathname === '/api/windows/remove') {
+      const body = await readJson(req);
+      const sessionId = String(body.sessionId || '').trim();
+      const blockId = String(body.blockId || '').trim();
+      if (!sessionId || !blockId) return json(res, 400, { error: 'sessionId and blockId required' });
+      const s = await ensureLoaded(sessionId) || getSession(sessionId);
+      const before = (s.blocks || []).length;
+      s.blocks = (s.blocks || []).filter(b => !(b && b.kind === 'winbox' && b.id === blockId));
+      await saveSessionFile(sessionId, { meta: s.meta || { sessionId, title: '', createdAt: Date.now(), updatedAt: Date.now(), deleted: false }, blocks: s.blocks });
+      // broadcast close event (not persisted)
+      for (const res2 of s.clients) { try { sseSend(res2, 'block', { kind: 'winbox-close', targetId: blockId }); } catch {} }
+      return json(res, 200, { ok: true, removed: before - (s.blocks || []).length });
+    }
+    // clear all windows and notify clients
+    if (req.method === 'POST' && pathname === '/api/windows/clear') {
+      const body = await readJson(req);
+      const sessionId = String(body.sessionId || '').trim();
+      if (!sessionId) return json(res, 400, { error: 'sessionId required' });
+      const s = await ensureLoaded(sessionId) || getSession(sessionId);
+      const before = (s.blocks || []).length;
+      s.blocks = (s.blocks || []).filter(b => !(b && b.kind === 'winbox'));
+      await saveSessionFile(sessionId, { meta: s.meta || { sessionId, title: '', createdAt: Date.now(), updatedAt: Date.now(), deleted: false }, blocks: s.blocks });
+      for (const res2 of s.clients) { try { sseSend(res2, 'block', { kind: 'winbox-clear' }); } catch {} }
+      return json(res, 200, { ok: true, removed: before - (s.blocks || []).length });
+    }
+    // reset: clear all blocks (feed + windows) for a session
+    if (req.method === 'POST' && pathname === '/api/reset') {
+      const body = await readJson(req);
+      const sessionId = String(body.sessionId || '').trim();
+      if (!sessionId) return json(res, 400, { error: 'sessionId required' });
+      const s = await ensureLoaded(sessionId) || getSession(sessionId);
+      s.blocks = [];
+      await saveSessionFile(sessionId, { meta: s.meta || { sessionId, title: '', createdAt: Date.now(), updatedAt: Date.now(), deleted: false }, blocks: [] });
+      for (const res2 of s.clients) { try { sseSend(res2, 'block', { kind: 'reset' }); } catch {} }
+      return json(res, 200, { ok: true });
+    }
     // stream
     if (req.method === 'GET' && pathname === '/api/stream') {
       const sessionId = urlObj.searchParams.get('sessionId');
@@ -144,4 +212,3 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => { console.log(`Finance (full) listening on http://localhost:${PORT}`); });
-

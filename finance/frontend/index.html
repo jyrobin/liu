@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Finance Web - Liu Integration</title>
+
+    <!-- WinBox CSS -->
+    <link rel="stylesheet" href="/_refs/winbox/css/winbox.min.css" />
+    <link rel="stylesheet" href="/_refs/winbox/css/themes/white.min.css" />
+
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Ensure WinBox windows are above MUI surfaces */
+      .winbox {
+        z-index: 2000 !important;
+      }
+
+      /* Custom WinBox styling */
+      .wb-body {
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- WinBox Library (load before React app) -->
+    <script src="/_refs/winbox/winbox.bundle.min.js"></script>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

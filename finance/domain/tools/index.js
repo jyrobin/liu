@@ -36,6 +36,16 @@ export function financeEnsureSessionEnv() {
   const name = process.env.FIN_SESSION_NAME || 'demo';
   const title = process.env.FIN_SESSION_TITLE || name;
   const serverUrl = process.env.FINANCE_WEB_URL || WEB_URL;
+  const providedId = process.env.FIN_SESSION_ID || '';
+  if (providedId) {
+    const url = ensureUrl(serverUrl);
+    const store = readStoreSync();
+    store.byName[name] = { sessionId: providedId, serverUrl: url, title, createdAt: Date.now() };
+    store.active = name; writeStoreSync(store);
+    // Announce session non-destructively
+    try { postJSONSync(`${url}/api/append`, { sessionId: providedId, block: { kind: 'session', title } }); } catch {}
+    return { ok: true, name, sessionId: providedId, serverUrl: url, reused: true };
+  }
   return financeEnsureSession({ name, title, serverUrl });
 }
 
@@ -73,3 +83,6 @@ export function fetchDailyOHLC({ symbol = 'AAPL', period = '1M' }) {
   return { symbol, period, rows };
 }
 
+// Sub-domain tools (market, filings)
+export { getDailyBars, enrichSMA, enrichBollinger } from './market.js';
+export { listFilings, getFilingSections } from './filings.js';

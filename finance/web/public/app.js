@@ -1,5 +1,6 @@
 const streamEl = document.getElementById('stream');
 streamEl.className = 'stream';
+const WINBOX_REGISTRY = {};
 
 function block(title, payload) {
   const el = document.createElement('div'); el.className = 'block';
@@ -19,14 +20,36 @@ function handleBlock(b) {
   if (b.kind === 'text') return block(b.title || 'Text', b.text || '');
   if (b.kind === 'chart') return block('Chart', 'Use examples/finance web for chart rendering');
   if (b.kind === 'winbox') return openWinBox(b);
+  if (b.kind === 'winbox-close') return closeWinBoxById(b.targetId);
+  if (b.kind === 'winbox-clear') return closeAllWinBoxes();
   return block('Block', b);
 }
 
 function openWinBox(opts) {
   if (typeof WinBox === 'undefined') return block('WinBox missing', 'WinBox library not loaded');
   const { id, title = 'Window', x, y, width, height, top, right, bottom, left, className, html } = opts || {};
-  try { const wb = WinBox.new({ id, title, x, y, width, height, top, right, bottom, left, class: className }); if (html) wb.body.innerHTML = String(html); }
+  const blockId = opts && opts.id ? String(opts.id) : String(Date.now());
+  try {
+    const wb = WinBox.new({ id: blockId, title, x, y, width, height, top, right, bottom, left, class: className, onclose: () => { try { if (window.__FIN_SESSION_ID) post('/api/windows/remove', { sessionId: window.__FIN_SESSION_ID, blockId: blockId }); } catch {} return false; } });
+    if (html) wb.body.innerHTML = String(html);
+    WINBOX_REGISTRY[blockId] = wb;
+  }
   catch (e) { return block('WinBox error', String(e?.message || e)); }
+}
+
+function closeWinBoxById(id) {
+  if (!id) return;
+  const wb = WINBOX_REGISTRY[id];
+  if (wb && typeof wb.close === 'function') {
+    try { wb.close(true); } catch {}
+  }
+  delete WINBOX_REGISTRY[id];
+}
+
+function closeAllWinBoxes() {
+  for (const id of Object.keys(WINBOX_REGISTRY)) {
+    closeWinBoxById(id);
+  }
 }
 
 async function connectOrInit() {
@@ -39,6 +62,7 @@ async function connectOrInit() {
   evt.addEventListener('block', (e) => { try { handleBlock(JSON.parse(e.data)); } catch {} });
   // create main window with chat
   createMainWindow(sessionId);
+  window.__FIN_SESSION_ID = sessionId;
 }
 
 function createMainWindow(sessionId) {
@@ -49,6 +73,8 @@ function createMainWindow(sessionId) {
       <button id="open-screener">Screener</button>
       <button id="open-chart">Chart</button>
       <button id="open-filings">Filings</button>
+      <button id="run-demo-plan">Run Demo Plan</button>
+      <button id="close-all-windows">Close All Windows</button>
     </div>
     <div>
       <div style="color:#667085; font-size:12px; margin-bottom:6px">Ask (NL) — returns plan preview:</div>
@@ -79,7 +105,14 @@ function createMainWindow(sessionId) {
   root.querySelector('#open-filings').addEventListener('click', async () => {
     await post('/api/append', { sessionId, block: { kind: 'winbox', title: 'Filings — AAPL', x: 'right', y: 80, width: 520, height: 320, html: '<div style="padding:12px">Filings placeholder</div>' } });
   });
+
+  root.querySelector('#run-demo-plan').addEventListener('click', async () => {
+    await post('/api/run-plan', { plan: 'market_filings_demo', sessionId, name: 'web', title: 'Web Demo Plan' });
+  });
+
+  root.querySelector('#close-all-windows').addEventListener('click', async () => {
+    await post('/api/windows/clear', { sessionId });
+  });
 }
 
 connectOrInit();
-

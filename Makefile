@@ -86,3 +86,13 @@ finance-full-web:
 .PHONY: finance-full-list-sessions
 finance-full-list-sessions:
 	@curl -s http://localhost:5280/api/sessions | jq .
+
+.PHONY: finance-full-run
+# Usage: make -C liu finance-full-run PLAN=market_filings_demo SID=<sessionId>
+finance-full-run:
+	FINANCE_WEB_URL=http://localhost:5280 \
+	FINANCE_SESSION_STORE=$(PWD)/finance/workspace/.finance-sessions.json \
+	FIN_SESSION_NAME=web \
+	FIN_SESSION_TITLE="Web Demo" \
+	FIN_SESSION_ID=$(SID) \
+	node bin/liu.js --domain-root finance/domain run-plan $(PLAN) --workspace finance/workspace --run-id cli_$$(date +%s) --force
