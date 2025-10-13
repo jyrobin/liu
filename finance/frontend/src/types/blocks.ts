@@ -66,6 +66,27 @@ export interface ErrorBlock extends BaseBlock {
   text: string;
 }
 
+export interface CommandBlock extends BaseBlock {
+  kind: 'command';
+  command: string;
+  params: Record<string, any>;
+}
+
+export interface LogBlock extends BaseBlock {
+  kind: 'log';
+  level: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  ts?: number;
+}
+
+export interface ProgressBlock extends BaseBlock {
+  kind: 'progress';
+  operation: string;
+  current: number;
+  total: number;
+  message?: string;
+}
+
 export type Block =
   | RequestBlock
   | TextBlock
@@ -76,4 +97,7 @@ export type Block =
   | WinBoxClearBlock
   | ResetBlock
   | InfoBlock
-  | ErrorBlock;
+  | ErrorBlock
+  | CommandBlock
+  | LogBlock
+  | ProgressBlock;

@@ -82,6 +82,248 @@ function serveStatic(req, res, pathname) {
   fssync.readFile(p, (err, buf) => { if (err) { notFound(res); return; } res.writeHead(200, { 'Content-Type': type }); res.end(buf); });
 }
 
+// Command handler - processes finance domain commands
+async function handleCommand(sessionId, command, params) {
+  // Log commands for debugging
+  console.log(`[Command] ${command}`, params);
+
+  // Handle logging commands
+  if (command === 'logStatus') {
+    await appendBlock(sessionId, {
+      kind: 'log',
+      level: params.level || 'info',
+      message: params.message || '',
+      ts: Date.now()
+    });
+    return;
+  }
+
+  if (command === 'logProgress') {
+    await appendBlock(sessionId, {
+      kind: 'progress',
+      operation: params.operation || 'Operation',
+      current: params.current || 0,
+      total: params.total || 100,
+      message: params.message
+    });
+    return;
+  }
+
+  if (command === 'showRequest') {
+    await appendBlock(sessionId, {
+      kind: 'request',
+      text: params.text || ''
+    });
+    return;
+  }
+
+  if (command === 'showMessage') {
+    await appendBlock(sessionId, {
+      kind: 'text',
+      title: params.title || 'Message',
+      text: params.text || ''
+    });
+    return;
+  }
+
+  // Mock implementations for demo (TODO: implement real logic)
+  if (command === 'showPriceChart') {
+    const { symbol, period, indicators, display } = params;
+
+    // Mock chart data
+    const mockSpec = {
+      $schema: 'https://vega.github.io/schema/vega-lite/v5.json',
+      description: `${symbol} price chart (${period})`,
+      width: 600,
+      height: 300,
+      mark: 'line',
+      encoding: {
+        x: { field: 'date', type: 'temporal' },
+        y: { field: 'price', type: 'quantitative' }
+      }
+    };
+
+    const mockData = Array.from({ length: 30 }, (_, i) => ({
+      date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      price: 150 + Math.random() * 30
+    }));
+
+    if (display === 'feed' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'chart',
+        spec: mockSpec,
+        data: mockData
+      });
+    }
+
+    if (display === 'window' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'winbox',
+        title: `${symbol} Price Chart`,
+        x: 'center',
+        y: 60,
+        width: 700,
+        height: 450,
+        html: `<div style="padding:20px">
+          <h3 style="margin:0 0 16px">$ {symbol} Price Chart</h3>
+          <p style="color:#64748b">Period: ${period}</p>
+          <p style="color:#64748b">Indicators: ${(indicators || []).join(', ') || 'None'}</p>
+          <p style="margin-top:20px;padding:12px;background:#f1f5f9;border-radius:8px">
+            📊 Mock chart data - Real implementation would show interactive Vega chart here
+          </p>
+        </div>`
+      });
+    }
+    return;
+  }
+
+  if (command === 'showFundamentals') {
+    const { symbol, sections, display } = params;
+
+    if (display === 'feed' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'text',
+        title: `${symbol} Fundamentals`,
+        text: `Sections: ${(sections || []).join(', ')}\n\nMock fundamentals data would appear here.`
+      });
+    }
+
+    if (display === 'window' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'winbox',
+        title: `${symbol} Fundamentals`,
+        x: 'right',
+        y: 100,
+        width: 500,
+        height: 600,
+        html: `<div style="padding:20px">
+          <h3 style="margin:0 0 16px">${symbol} Fundamentals</h3>
+          <div style="display:grid;gap:12px">
+            <div style="padding:12px;background:#f8fafc;border-radius:8px">
+              <div style="color:#64748b;font-size:12px;margin-bottom:4px">Market Cap</div>
+              <div style="font-size:18px;font-weight:600">$2.8T</div>
+            </div>
+            <div style="padding:12px;background:#f8fafc;border-radius:8px">
+              <div style="color:#64748b;font-size:12px;margin-bottom:4px">P/E Ratio</div>
+              <div style="font-size:18px;font-weight:600">28.5</div>
+            </div>
+            <div style="padding:12px;background:#f8fafc;border-radius:8px">
+              <div style="color:#64748b;font-size:12px;margin-bottom:4px">EPS</div>
+              <div style="font-size:18px;font-weight:600">$6.42</div>
+            </div>
+          </div>
+          <p style="margin-top:20px;padding:12px;background:#fef3c7;border-radius:8px;font-size:13px">
+            📊 Mock data - Real implementation would fetch from API
+          </p>
+        </div>`
+      });
+    }
+    return;
+  }
+
+  if (command === 'showNews') {
+    const { symbol, limit, display } = params;
+    const mockNews = [
+      { title: `${symbol} Reports Strong Q3 Earnings`, source: 'Financial Times', time: '2h ago' },
+      { title: `Analysts Upgrade ${symbol} to Buy`, source: 'Bloomberg', time: '5h ago' },
+      { title: `${symbol} Announces New Product Line`, source: 'Reuters', time: '1d ago' },
+    ].slice(0, limit || 5);
+
+    if (display === 'feed' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'text',
+        title: `${symbol} News`,
+        text: mockNews.map(n => `• ${n.title} (${n.source}, ${n.time})`).join('\n')
+      });
+    }
+
+    if (display === 'window' || display === 'both') {
+      const newsHtml = mockNews.map(n => `
+        <div style="padding:12px;border-bottom:1px solid #e5e7eb">
+          <div style="font-weight:600;margin-bottom:4px">${n.title}</div>
+          <div style="font-size:12px;color:#64748b">${n.source} • ${n.time}</div>
+        </div>
+      `).join('');
+
+      await appendBlock(sessionId, {
+        kind: 'winbox',
+        title: `${symbol} News`,
+        x: 100,
+        y: 100,
+        width: 500,
+        height: 400,
+        html: `<div style="height:100%;overflow:auto">
+          <h3 style="margin:0;padding:20px 20px 16px;border-bottom:1px solid #e5e7eb">${symbol} News</h3>
+          ${newsHtml}
+        </div>`
+      });
+    }
+    return;
+  }
+
+  if (command === 'compareSymbols') {
+    const { symbols, metric, period, display } = params;
+
+    if (display === 'feed' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'text',
+        title: 'Symbol Comparison',
+        text: `Comparing ${symbols.join(', ')}\nMetric: ${metric}\nPeriod: ${period}\n\nMock comparison data would appear here.`
+      });
+    }
+
+    if (display === 'window' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'winbox',
+        title: 'Symbol Comparison',
+        x: 'center',
+        y: 80,
+        width: 700,
+        height: 500,
+        html: `<div style="padding:20px">
+          <h3 style="margin:0 0 16px">Comparing: ${symbols.join(', ')}</h3>
+          <p style="color:#64748b">Metric: ${metric} | Period: ${period}</p>
+          <div style="margin-top:20px;padding:16px;background:#f1f5f9;border-radius:8px">
+            📊 Mock comparison chart would appear here
+          </div>
+        </div>`
+      });
+    }
+    return;
+  }
+
+  if (command === 'compareRatios') {
+    const { symbols, ratios, display } = params;
+
+    if (display === 'window' || display === 'both') {
+      await appendBlock(sessionId, {
+        kind: 'winbox',
+        title: 'Ratio Comparison',
+        x: 'right',
+        y: 120,
+        width: 600,
+        height: 400,
+        html: `<div style="padding:20px">
+          <h3 style="margin:0 0 16px">Financial Ratios</h3>
+          <p style="color:#64748b;margin-bottom:16px">Symbols: ${symbols.join(', ')}</p>
+          <p style="color:#64748b">Ratios: ${(ratios || []).join(', ')}</p>
+          <div style="margin-top:20px;padding:16px;background:#f1f5f9;border-radius:8px">
+            📊 Mock ratio comparison table would appear here
+          </div>
+        </div>`
+      });
+    }
+    return;
+  }
+
+  // Default: acknowledge unknown command
+  await appendBlock(sessionId, {
+    kind: 'text',
+    title: 'Command Received',
+    text: `Command: ${command}\nParams: ${JSON.stringify(params, null, 2)}\n\n⚠️ Mock implementation - add real logic in server.js`
+  });
+}
+
 await ensureDataDirs();
 
 const server = http.createServer(async (req, res) => {
@@ -154,6 +396,22 @@ const server = http.createServer(async (req, res) => {
       const block = body.block || {};
       const saved = await appendBlock(sessionId, block);
       return json(res, 200, { ok: true, block: saved });
+    }
+    // command endpoint (NEW)
+    if (req.method === 'POST' && pathname === '/api/command') {
+      const body = await readJson(req);
+      const sessionId = String(body.sessionId || '').trim();
+      const commandBlock = body.command || {};
+      const { command, params } = commandBlock;
+      if (!sessionId || !command) return json(res, 400, { error: 'sessionId and command required' });
+
+      try {
+        // Handle commands and emit blocks
+        await handleCommand(sessionId, command, params || {});
+        return json(res, 200, { ok: true });
+      } catch (e) {
+        return json(res, 500, { error: String(e?.message || e) });
+      }
     }
     // remove a specific window (by block id) and notify clients
     if (req.method === 'POST' && pathname === '/api/windows/remove') {

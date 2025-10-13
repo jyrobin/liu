@@ -128,13 +128,13 @@ uiAppendChart({
     }
   };
 
-  const handleRunPlan = async () => {
+  const handleRunPlan = async (planName: string) => {
     if (!sessionId) return;
 
     try {
-      await runPlan('market_filings_demo', sessionId, {
+      await runPlan(planName, sessionId, {
         name: 'web',
-        title: 'Demo Plan',
+        title: planName.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
       });
     } catch (err) {
       console.error('Failed to run plan:', err);
@@ -223,13 +223,13 @@ uiAppendChart({
               />
             }
             middleColumn={<ChatFeed blocks={blocks} onSendMessage={handleSendMessage} />}
-            rightColumn={<Canvas />}
-            defaultLeftWidth={280}
-            defaultRightWidth={360}
-            minLeftWidth={240}
-            maxLeftWidth={400}
-            minRightWidth={280}
-            maxRightWidth={500}
+            rightColumn={<Canvas blocks={blocks} />}
+            defaultLeftWidth={260}
+            defaultRightWidth={380}
+            minLeftWidth={220}
+            maxLeftWidth={380}
+            minRightWidth={300}
+            maxRightWidth={600}
           />
         </Box>
       </Box>

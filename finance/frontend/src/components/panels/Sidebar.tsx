@@ -16,11 +16,13 @@ import {
   Description as DescriptionIcon,
   PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
+  TrendingUp as TrendingUpIcon,
+  CompareArrows as CompareArrowsIcon,
 } from '@mui/icons-material';
 
 interface SidebarProps {
   onOpenWindow: (type: 'screener' | 'chart' | 'filings') => void;
-  onRunPlan: () => void;
+  onRunPlan: (planName: string) => void;
   onReset: () => void;
 }
 
@@ -79,36 +81,50 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenWindow, onRunPlan, onReset }) =
           variant="caption"
           sx={{ px: 2, py: 1, display: 'block', color: 'text.secondary', fontWeight: 600 }}
         >
-          LIU INTEGRATION
+          DEMO PLANS
         </Typography>
-        <Box sx={{ px: 2 }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
-            Run Liu plans with finance domain tools
+        <Box sx={{ px: 2, mb: 1 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+            Run Liu plans with finance commands
           </Typography>
         </Box>
+        <List dense>
+          <ListItemButton onClick={() => onRunPlan('market_overview')}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <TrendingUpIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Market Overview"
+              secondary="Price, fundamentals, news"
+              primaryTypographyProps={{ variant: 'body2' }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </ListItemButton>
+          <ListItemButton onClick={() => onRunPlan('comparative_analysis')}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <CompareArrowsIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Comparative Analysis"
+              secondary="AAPL, MSFT, GOOGL"
+              primaryTypographyProps={{ variant: 'body2' }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </ListItemButton>
+        </List>
       </Box>
 
       {/* Actions */}
       <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-        <Stack spacing={1}>
-          <Button
-            variant="contained"
-            fullWidth
-            startIcon={<PlayArrowIcon />}
-            onClick={onRunPlan}
-          >
-            Run Demo Plan
-          </Button>
-          <Button
-            variant="outlined"
-            fullWidth
-            startIcon={<RefreshIcon />}
-            onClick={onReset}
-            size="small"
-          >
-            Reset Session
-          </Button>
-        </Stack>
+        <Button
+          variant="outlined"
+          fullWidth
+          startIcon={<RefreshIcon />}
+          onClick={onReset}
+          size="small"
+        >
+          Reset Session
+        </Button>
       </Box>
     </Box>
   );

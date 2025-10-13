@@ -1,3 +1,16 @@
+/**
+ * Finance Domain Tools — Command Implementation
+ *
+ * These are THIN WRAPPERS that send commands to the finance service.
+ * The service handles all the heavy lifting:
+ * - Data fetching and processing
+ * - Chart generation
+ * - HTML rendering
+ * - Complex domain logic
+ *
+ * Tools simply POST command blocks to /api/command
+ */
+
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import cp from 'node:child_process';
@@ -10,25 +23,70 @@ const __dirname = path.dirname(__filename);
 const WEB_URL = process.env.FINANCE_WEB_URL || 'http://localhost:5280';
 const STORE_PATH = process.env.FINANCE_SESSION_STORE || path.resolve(process.cwd(), '.finance-sessions.json');
 
-function readStoreSync() { try { const t = fsSync.readFileSync(STORE_PATH, 'utf8'); return JSON.parse(t); } catch { return { active: null, byName: {} }; } }
-function writeStoreSync(s) { fsSync.writeFileSync(STORE_PATH, JSON.stringify(s, null, 2)); }
-function ensureUrl(u) { return (u || WEB_URL).replace(/\/$/, ''); }
+function readStoreSync() {
+  try {
+    const t = fsSync.readFileSync(STORE_PATH, 'utf8');
+    return JSON.parse(t);
+  } catch {
+    return { active: null, byName: {} };
+  }
+}
+
+function writeStoreSync(s) {
+  fsSync.writeFileSync(STORE_PATH, JSON.stringify(s, null, 2));
+}
+
+function ensureUrl(u) {
+  return (u || WEB_URL).replace(/\/$/, '');
+}
 
 function postJSONSync(url, body) {
-  const args = ['-sS', '-X', 'POST', url, '-H', 'content-type: application/json', '-d', JSON.stringify(body)];
+  const args = [
+    '-sS',
+    '-X',
+    'POST',
+    url,
+    '-H',
+    'content-type: application/json',
+    '-d',
+    JSON.stringify(body),
+  ];
   const out = cp.execFileSync('curl', args, { encoding: 'utf8' });
-  try { return JSON.parse(out || '{}'); } catch { return {}; }
+  try {
+    return JSON.parse(out || '{}');
+  } catch {
+    return {};
+  }
 }
+
+// ============================================================================
+// Session Management
+// ============================================================================
 
 export function financeEnsureSession({ name, title, serverUrl }) {
   const url = ensureUrl(serverUrl);
   const store = readStoreSync();
-  if (store.byName[name]) { store.active = name; writeStoreSync(store); return { ok: true, name, sessionId: store.byName[name].sessionId, serverUrl: store.byName[name].serverUrl, reused: true }; }
+  if (store.byName[name]) {
+    store.active = name;
+    writeStoreSync(store);
+    return {
+      ok: true,
+      name,
+      sessionId: store.byName[name].sessionId,
+      serverUrl: store.byName[name].serverUrl,
+      reused: true,
+    };
+  }
   const resp = postJSONSync(`${url}/api/session/init`, { title: title || name, sessionId: null });
   const sessionId = resp.sessionId;
-  store.byName[name] = { sessionId, serverUrl: url, title: resp.title || title || name, createdAt: Date.now() };
-  store.active = name; writeStoreSync(store);
-  postJSONSync(`${url}/api/append`, { sessionId, block: { kind: 'session', title: resp.title || title || name } });
+  store.byName[name] = {
+    sessionId,
+    serverUrl: url,
+    title: resp.title || title || name,
+    createdAt: Date.now(),
+  };
+  store.active = name;
+  writeStoreSync(store);
   return { ok: true, name, sessionId, serverUrl: url, reused: false };
 }
 
@@ -37,52 +95,242 @@ export function financeEnsureSessionEnv() {
   const title = process.env.FIN_SESSION_TITLE || name;
   const serverUrl = process.env.FINANCE_WEB_URL || WEB_URL;
   const providedId = process.env.FIN_SESSION_ID || '';
+
   if (providedId) {
     const url = ensureUrl(serverUrl);
     const store = readStoreSync();
     store.byName[name] = { sessionId: providedId, serverUrl: url, title, createdAt: Date.now() };
-    store.active = name; writeStoreSync(store);
-    // Announce session non-destructively
-    try { postJSONSync(`${url}/api/append`, { sessionId: providedId, block: { kind: 'session', title } }); } catch {}
+    store.active = name;
+    writeStoreSync(store);
     return { ok: true, name, sessionId: providedId, serverUrl: url, reused: true };
   }
   return financeEnsureSession({ name, title, serverUrl });
 }
 
-export function financeUseSession({ name }) { const store = readStoreSync(); if (!store.byName[name]) throw new Error(`Unknown session name: ${name}`); store.active = name; writeStoreSync(store); return { ok: true, name, sessionId: store.byName[name].sessionId }; }
-export function financeCurrentSession() { const store = readStoreSync(); const name = store.active; if (!name) return { active: null }; return { active: name, ...store.byName[name] }; }
-export function financeRemoveSession({ name }) { const store = readStoreSync(); if (store.byName[name]) delete store.byName[name]; if (store.active === name) store.active = null; writeStoreSync(store); return { ok: true }; }
+export function financeUseSession({ name }) {
+  const store = readStoreSync();
+  if (!store.byName[name]) throw new Error(`Unknown session name: ${name}`);
+  store.active = name;
+  writeStoreSync(store);
+  return { ok: true, name, sessionId: store.byName[name].sessionId };
+}
+
+export function financeCurrentSession() {
+  const store = readStoreSync();
+  const name = store.active;
+  if (!name) return { active: null };
+  return { active: name, ...store.byName[name] };
+}
+
+export function financeRemoveSession({ name }) {
+  const store = readStoreSync();
+  if (store.byName[name]) delete store.byName[name];
+  if (store.active === name) store.active = null;
+  writeStoreSync(store);
+  return { ok: true };
+}
 
 function getActiveMappingSync(explicitSessionId) {
   if (explicitSessionId) return { sessionId: explicitSessionId, serverUrl: WEB_URL };
   const store = readStoreSync();
-  const name = store.active; if (!name) throw new Error('No active session. Call financeEnsureSession or financeUseSession first.');
-  const rec = store.byName[name]; if (!rec) throw new Error('Active session mapping missing.');
+  const name = store.active;
+  if (!name) throw new Error('No active session. Call financeEnsureSession first.');
+  const rec = store.byName[name];
+  if (!rec) throw new Error('Active session mapping missing.');
   return { sessionId: rec.sessionId, serverUrl: rec.serverUrl };
 }
 
-export function uiAppendRequest({ sessionId, text }) { const map = getActiveMappingSync(sessionId); postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block: { kind: 'request', text: String(text || '') } }); return { ok: true }; }
-export function uiAppendText({ sessionId, title, text }) { const map = getActiveMappingSync(sessionId); postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block: { kind: 'text', title: title || '', text: String(text || '') } }); return { ok: true }; }
-export function uiAppendChart({ sessionId, spec, data }) { const map = getActiveMappingSync(sessionId); postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block: { kind: 'chart', spec: spec || {}, data: Array.isArray(data) ? data : [] } }); return { ok: true }; }
+/**
+ * Send a command to the finance service
+ * The service handles all processing and decides what to render
+ */
+function sendCommand(command, params) {
+  const map = getActiveMappingSync(params.sessionId);
+  const url = ensureUrl(map.serverUrl);
 
-export function uiOpenWindow({ sessionId, title, x, y, width, height, top, right, bottom, left, className, html }) {
-  const map = getActiveMappingSync(sessionId);
-  const block = { kind: 'winbox', title: title || 'Window', x, y, width, height, top, right, bottom, left, className, html };
-  postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block });
+  // Send command block to service
+  const block = {
+    kind: 'command',
+    command,
+    params: { ...params, sessionId: undefined }, // Remove sessionId from params
+  };
+
+  postJSONSync(`${url}/api/command`, { sessionId: map.sessionId, command: block });
   return { ok: true };
 }
-export function uiOpenWindows({ sessionId, windows }) { const map = getActiveMappingSync(sessionId); if (!Array.isArray(windows)) return { ok: false }; for (const w of windows) { const block = { kind: 'winbox', ...(w || {}) }; postJSONSync(`${ensureUrl(map.serverUrl)}/api/append`, { sessionId: map.sessionId, block }); } return { ok: true }; }
 
-export function fetchDailyOHLC({ symbol = 'AAPL', period = '1M' }) {
-  // Reuse example dataset for now
-  const exData = path.join(__dirname, '..', '..', 'examples', 'finance', 'domain', 'data', 'aapl_ohlc_month.json');
-  const fallback = path.join(__dirname, '..', 'data', 'aapl_ohlc_month.json');
-  const p = fsSync.existsSync(exData) ? exData : fallback;
-  const text = fsSync.readFileSync(p, 'utf8');
-  const rows = JSON.parse(text);
-  return { symbol, period, rows };
+// ============================================================================
+// Display Commands
+// ============================================================================
+
+export function showMessage(args) {
+  return sendCommand('showMessage', args);
 }
 
-// Sub-domain tools (market, filings)
-export { getDailyBars, enrichSMA, enrichBollinger } from './market.js';
-export { listFilings, getFilingSections } from './filings.js';
+export function showRequest(args) {
+  return sendCommand('showRequest', args);
+}
+
+// ============================================================================
+// Market Commands
+// ============================================================================
+
+export function showPriceChart(args) {
+  return sendCommand('showPriceChart', args);
+}
+
+export function showVolumeChart(args) {
+  return sendCommand('showVolumeChart', args);
+}
+
+export function showMarketOverview(args) {
+  return sendCommand('showMarketOverview', args);
+}
+
+export function compareSymbols(args) {
+  return sendCommand('compareSymbols', args);
+}
+
+// ============================================================================
+// Fundamentals Commands
+// ============================================================================
+
+export function showFundamentals(args) {
+  return sendCommand('showFundamentals', args);
+}
+
+export function showEarnings(args) {
+  return sendCommand('showEarnings', args);
+}
+
+export function compareRatios(args) {
+  return sendCommand('compareRatios', args);
+}
+
+// ============================================================================
+// Filings Commands
+// ============================================================================
+
+export function showFilings(args) {
+  return sendCommand('showFilings', args);
+}
+
+export function showFilingDetail(args) {
+  return sendCommand('showFilingDetail', args);
+}
+
+// ============================================================================
+// Screening Commands
+// ============================================================================
+
+export function openScreener(args) {
+  return sendCommand('openScreener', args);
+}
+
+export function showScreenResults(args) {
+  return sendCommand('showScreenResults', args);
+}
+
+// ============================================================================
+// News & Sentiment Commands
+// ============================================================================
+
+export function showNews(args) {
+  return sendCommand('showNews', args);
+}
+
+export function showSentiment(args) {
+  return sendCommand('showSentiment', args);
+}
+
+// ============================================================================
+// Portfolio Commands
+// ============================================================================
+
+export function showPortfolio(args) {
+  return sendCommand('showPortfolio', args);
+}
+
+export function showPosition(args) {
+  return sendCommand('showPosition', args);
+}
+
+export function runBacktest(args) {
+  return sendCommand('runBacktest', args);
+}
+
+// ============================================================================
+// Workspace Commands
+// ============================================================================
+
+export function createWatchlist(args) {
+  return sendCommand('createWatchlist', args);
+}
+
+export function showWatchlist(args) {
+  return sendCommand('showWatchlist', args);
+}
+
+export function saveWorkspace(args) {
+  return sendCommand('saveWorkspace', args);
+}
+
+export function loadWorkspace(args) {
+  return sendCommand('loadWorkspace', args);
+}
+
+// ============================================================================
+// Advanced Analysis Commands
+// ============================================================================
+
+export function runAnalysis(args) {
+  return sendCommand('runAnalysis', args);
+}
+
+export function showRisk(args) {
+  return sendCommand('showRisk', args);
+}
+
+// ============================================================================
+// Logging/Status Commands
+// ============================================================================
+
+export function logStatus(args) {
+  return sendCommand('logStatus', args);
+}
+
+export function logProgress(args) {
+  return sendCommand('logProgress', args);
+}
+
+// ============================================================================
+// Low-Level UI Commands
+// ============================================================================
+
+export function appendCustomChart(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  const url = ensureUrl(map.serverUrl);
+  postJSONSync(`${url}/api/append`, {
+    sessionId: map.sessionId,
+    block: { kind: 'chart', spec: args.spec, data: args.data, title: args.title },
+  });
+  return { ok: true };
+}
+
+export function openCustomWindow(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  const url = ensureUrl(map.serverUrl);
+  postJSONSync(`${url}/api/append`, {
+    sessionId: map.sessionId,
+    block: {
+      kind: 'winbox',
+      title: args.title || 'Window',
+      x: args.x,
+      y: args.y,
+      width: args.width,
+      height: args.height,
+      url: args.url,
+    },
+  });
+  return { ok: true };
+}
