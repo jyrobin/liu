@@ -6,6 +6,7 @@ import { removeWindow } from './api';
  * Allows floating windows across the entire page
  */
 const winBoxRegistry: Record<string, any> = {};
+let nextZIndex = 3000;
 
 /**
  * Dock chip management for minimized windows
@@ -72,11 +73,19 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
       onrestore: () => {
         removeDockChip(id);
       },
+      onfocus: () => {
+        try {
+          winBox.dom.style.zIndex = String(++nextZIndex);
+        } catch {}
+      },
     });
 
     if (html) {
       winBox.body.innerHTML = html;
     }
+
+    // Ensure initial focus order is above MUI surfaces
+    try { winBox.dom.style.zIndex = String(++nextZIndex); } catch {}
 
     winBoxRegistry[id] = winBox;
     return true;
@@ -174,4 +183,12 @@ const removeDockChip = (id: string) => {
  */
 export const getOpenWindowIds = (): string[] => {
   return Object.keys(winBoxRegistry);
+};
+
+/** Focus a WinBox window by ID */
+export const focusWinBox = (id: string) => {
+  const wb = winBoxRegistry[id];
+  if (wb && typeof wb.focus === 'function') {
+    try { wb.focus(); } catch (err) { console.error('Failed to focus WinBox:', err); }
+  }
 };

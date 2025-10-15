@@ -25,6 +25,14 @@ export interface ChartBlock extends BaseBlock {
   kind: 'chart';
   spec: any; // Vega-Lite spec
   data?: any[]; // Optional inline data
+  windowRefId?: string;
+}
+
+export interface ReportBlock extends BaseBlock {
+  kind: 'report';
+  title?: string;
+  html: string;
+  windowRefId?: string; // optional id of associated window
 }
 
 export interface WinBoxBlock extends BaseBlock {
@@ -92,6 +100,7 @@ export type Block =
   | TextBlock
   | PlanBlock
   | ChartBlock
+  | ReportBlock
   | WinBoxBlock
   | WinBoxCloseBlock
   | WinBoxClearBlock

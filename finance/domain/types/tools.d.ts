@@ -44,6 +44,9 @@ export declare function financeRemoveSession(args: {
   name: string
 }): { ok: boolean };
 
+// Data-shaped command result
+export type CommandResult = { status: string } & Record<string, any>;
+
 // ============================================================================
 // Display Commands — Content in Feed
 // ============================================================================
@@ -55,7 +58,7 @@ export declare function showMessage(args: {
   sessionId?: string;
   text: string;
   title?: string;
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show a request block (user intent echo)
@@ -63,7 +66,7 @@ export declare function showMessage(args: {
 export declare function showRequest(args: {
   sessionId?: string;
   text: string;
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Market Commands
@@ -81,7 +84,7 @@ export declare function showPriceChart(args: {
   indicators?: Array<'sma' | 'ema' | 'bollinger' | 'volume'>;
   display?: 'feed' | 'window' | 'both';
   windowTitle?: string;
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show volume chart
@@ -91,7 +94,7 @@ export declare function showVolumeChart(args: {
   symbol: string;
   period?: string;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show market overview/heatmap
@@ -100,7 +103,7 @@ export declare function showMarketOverview(args: {
   sessionId?: string;
   market?: 'US' | 'GLOBAL' | 'CRYPTO';
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Compare multiple symbols
@@ -111,7 +114,7 @@ export declare function compareSymbols(args: {
   metric?: 'price' | 'returns' | 'volume';
   period?: string;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Fundamentals Commands
@@ -125,7 +128,7 @@ export declare function showFundamentals(args: {
   symbol: string;
   sections?: Array<'overview' | 'income' | 'balance' | 'cashflow' | 'ratios'>;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show earnings history and estimates
@@ -135,7 +138,7 @@ export declare function showEarnings(args: {
   symbol: string;
   quarters?: number;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show financial ratios comparison
@@ -145,7 +148,7 @@ export declare function compareRatios(args: {
   symbols: string[];
   ratios?: Array<'pe' | 'pb' | 'roe' | 'debt' | 'margin'>;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Filings Commands
@@ -160,7 +163,7 @@ export declare function showFilings(args: {
   types?: Array<'10-K' | '10-Q' | '8-K' | 'ALL'>;
   limit?: number;
   display?: 'window';  // Filings typically need window
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show specific filing sections
@@ -171,7 +174,7 @@ export declare function showFilingDetail(args: {
   filingId: string;
   sections?: Array<'risk' | 'mda' | 'financials' | 'ALL'>;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Screening Commands
@@ -189,7 +192,7 @@ export declare function openScreener(args: {
     volume?: { min?: number };
     sector?: string[];
   };
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show screening results
@@ -198,7 +201,7 @@ export declare function showScreenResults(args: {
   sessionId?: string;
   results: Array<{ symbol: string; name: string; score: number }>;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // News & Sentiment Commands
@@ -213,7 +216,7 @@ export declare function showNews(args: {
   category?: 'market' | 'earnings' | 'analyst' | 'ALL';
   limit?: number;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show sentiment analysis
@@ -223,7 +226,7 @@ export declare function showSentiment(args: {
   symbol: string;
   sources?: Array<'news' | 'social' | 'analyst'>;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Portfolio Commands
@@ -236,7 +239,7 @@ export declare function showPortfolio(args: {
   sessionId?: string;
   portfolioId?: string;
   display?: 'window';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Show position detail
@@ -246,7 +249,7 @@ export declare function showPosition(args: {
   symbol: string;
   portfolioId?: string;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Run backtest simulation
@@ -257,7 +260,7 @@ export declare function runBacktest(args: {
   symbols: string[];
   period?: string;
   display?: 'feed' | 'window' | 'both';
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Workspace Commands
@@ -333,7 +336,7 @@ export declare function logStatus(args: {
   sessionId?: string;
   level: 'info' | 'success' | 'warning' | 'error';
   message: string;
-}): { ok: boolean };
+}): CommandResult;
 
 /**
  * Log progress for long-running operations
@@ -344,7 +347,7 @@ export declare function logProgress(args: {
   current: number;
   total: number;
   message?: string;
-}): { ok: boolean };
+}): CommandResult;
 
 // ============================================================================
 // Low-Level UI Commands (for special cases)
@@ -373,4 +376,14 @@ export declare function openCustomWindow(args: {
   width?: number;
   height?: number;
   url?: string;  // Load external URL or service endpoint
+}): { ok: boolean };
+
+/**
+ * Append a rich HTML report into the chat feed
+ */
+export declare function report(args: {
+  sessionId?: string;
+  title?: string;
+  html: string;
+  windowRefId?: string;
 }): { ok: boolean };

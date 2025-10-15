@@ -155,8 +155,8 @@ function sendCommand(command, params) {
     params: { ...params, sessionId: undefined }, // Remove sessionId from params
   };
 
-  postJSONSync(`${url}/api/command`, { sessionId: map.sessionId, command: block });
-  return { ok: true };
+  const resp = postJSONSync(`${url}/api/command`, { sessionId: map.sessionId, command: block }) || {};
+  return resp.result || { status: 'ok' };
 }
 
 // ============================================================================
@@ -330,6 +330,22 @@ export function openCustomWindow(args) {
       width: args.width,
       height: args.height,
       url: args.url,
+    },
+  });
+  return { ok: true };
+}
+
+// Append a rich HTML report block to the chat feed
+export function report(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  const url = ensureUrl(map.serverUrl);
+  postJSONSync(`${url}/api/append`, {
+    sessionId: map.sessionId,
+    block: {
+      kind: 'report',
+      title: args.title || '',
+      html: args.html || '',
+      windowRefId: args.windowRefId,
     },
   });
   return { ok: true };

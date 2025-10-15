@@ -22,16 +22,8 @@ function App() {
     // Handle special block types
     if (block.kind === 'winbox') {
       const dockContainer = (window as any).__FINANCE_DOCK_CONTAINER;
-      const success = openWinBox(block as WinBoxBlock, dockContainer);
-      setBlocks((prev) => [
-        ...prev,
-        {
-          kind: success ? 'info' : 'error',
-          text: success
-            ? `Opened window: ${(block as WinBoxBlock).title || 'Window'}`
-            : `Failed to open window: ${(block as WinBoxBlock).title || 'Window'}`,
-        },
-      ]);
+      openWinBox(block as WinBoxBlock, dockContainer);
+      // Do not add chat entry for window lifecycle; keep chat for conversations
       return;
     }
 
@@ -52,7 +44,7 @@ function App() {
       return;
     }
 
-    // Add block to feed
+    // Add block for feed/logs routing (ChatFeed filters non-chat kinds)
     setBlocks((prev) => [...prev, block]);
   }, []);
 

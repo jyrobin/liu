@@ -100,6 +100,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenWindow, onRunPlan, onReset }) =
               secondaryTypographyProps={{ variant: 'caption' }}
             />
           </ListItemButton>
+          <ListItemButton onClick={() => onRunPlan('chart_both_demo')}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <ShowChartIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Chart (both) Demo"
+              secondary="Inline chart + window"
+              primaryTypographyProps={{ variant: 'body2' }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </ListItemButton>
           <ListItemButton onClick={() => onRunPlan('comparative_analysis')}>
             <ListItemIcon sx={{ minWidth: 40 }}>
               <CompareArrowsIcon fontSize="small" />

@@ -89,41 +89,41 @@ async function handleCommand(sessionId, command, params) {
 
   // Handle logging commands
   if (command === 'logStatus') {
-    await appendBlock(sessionId, {
+    const b = await appendBlock(sessionId, {
       kind: 'log',
       level: params.level || 'info',
       message: params.message || '',
       ts: Date.now()
     });
-    return;
+    return { status: 'success', logId: b.id };
   }
 
   if (command === 'logProgress') {
-    await appendBlock(sessionId, {
+    const b = await appendBlock(sessionId, {
       kind: 'progress',
       operation: params.operation || 'Operation',
       current: params.current || 0,
       total: params.total || 100,
       message: params.message
     });
-    return;
+    return { status: 'success', progressId: b.id };
   }
 
   if (command === 'showRequest') {
-    await appendBlock(sessionId, {
+    const b = await appendBlock(sessionId, {
       kind: 'request',
       text: params.text || ''
     });
-    return;
+    return { status: 'success', requestId: b.id };
   }
 
   if (command === 'showMessage') {
-    await appendBlock(sessionId, {
+    const b = await appendBlock(sessionId, {
       kind: 'text',
       title: params.title || 'Message',
       text: params.text || ''
     });
-    return;
+    return { status: 'success', textId: b.id };
   }
 
   // Mock implementations for demo (TODO: implement real logic)
@@ -148,16 +148,9 @@ async function handleCommand(sessionId, command, params) {
       price: 150 + Math.random() * 30
     }));
 
-    if (display === 'feed' || display === 'both') {
-      await appendBlock(sessionId, {
-        kind: 'chart',
-        spec: mockSpec,
-        data: mockData
-      });
-    }
-
+    let chartBlock, windowBlock;
     if (display === 'window' || display === 'both') {
-      await appendBlock(sessionId, {
+      windowBlock = await appendBlock(sessionId, {
         kind: 'winbox',
         title: `${symbol} Price Chart`,
         x: 'center',
@@ -174,22 +167,31 @@ async function handleCommand(sessionId, command, params) {
         </div>`
       });
     }
-    return;
+    if (display === 'feed' || display === 'both') {
+      chartBlock = await appendBlock(sessionId, {
+        kind: 'chart',
+        spec: mockSpec,
+        data: mockData,
+        windowRefId: windowBlock?.id
+      });
+    }
+    return { status: 'success', chartId: chartBlock?.id, windowId: windowBlock?.id };
   }
 
   if (command === 'showFundamentals') {
     const { symbol, sections, display } = params;
 
+    let feedBlock;
     if (display === 'feed' || display === 'both') {
-      await appendBlock(sessionId, {
-        kind: 'text',
-        title: `${symbol} Fundamentals`,
-        text: `Sections: ${(sections || []).join(', ')}\n\nMock fundamentals data would appear here.`
-      });
+      const reportHtml = `<div>
+        <div style=\"display:flex;gap:16px\">\n          <div><div style=\"font-size:12px;color:#64748b\">Market Cap</div><div style=\"font-weight:600\">$2.8T</div></div>\n          <div><div style=\"font-size:12px;color:#64748b\">P/E</div><div style=\"font-weight:600\">28.5</div></div>\n          <div><div style=\"font-size:12px;color:#64748b\">EPS</div><div style=\"font-weight:600\">$6.42</div></div>\n        </div>
+        <div style=\"margin-top:8px;color:#64748b\">Sections: ${(sections || []).join(', ')}</div>
+      </div>`;
+      feedBlock = await appendBlock(sessionId, { kind: 'report', title: `${symbol} Fundamentals`, html: reportHtml });
     }
 
     if (display === 'window' || display === 'both') {
-      await appendBlock(sessionId, {
+      const windowBlock = await appendBlock(sessionId, {
         kind: 'winbox',
         title: `${symbol} Fundamentals`,
         x: 'right',
@@ -217,8 +219,13 @@ async function handleCommand(sessionId, command, params) {
           </p>
         </div>`
       });
+      if (display === 'both') {
+        const linkHtml = `<div style=\"font-size:12px;color:#64748b\">Opened window: ${symbol} Fundamentals</div>`;
+        await appendBlock(sessionId, { kind:'report', title: `${symbol} Fundamentals`, html: linkHtml, windowRefId: windowBlock?.id });
+      }
+      return { status: 'success', feedId: feedBlock?.id, windowId: windowBlock?.id };
     }
-    return;
+    return { status: 'success', feedId: feedBlock?.id };
   }
 
   if (command === 'showNews') {
@@ -229,8 +236,9 @@ async function handleCommand(sessionId, command, params) {
       { title: `${symbol} Announces New Product Line`, source: 'Reuters', time: '1d ago' },
     ].slice(0, limit || 5);
 
+    let feedBlock;
     if (display === 'feed' || display === 'both') {
-      await appendBlock(sessionId, {
+      feedBlock = await appendBlock(sessionId, {
         kind: 'text',
         title: `${symbol} News`,
         text: mockNews.map(n => `• ${n.title} (${n.source}, ${n.time})`).join('\n')
@@ -245,7 +253,7 @@ async function handleCommand(sessionId, command, params) {
         </div>
       `).join('');
 
-      await appendBlock(sessionId, {
+      const windowBlock = await appendBlock(sessionId, {
         kind: 'winbox',
         title: `${symbol} News`,
         x: 100,
@@ -257,23 +265,22 @@ async function handleCommand(sessionId, command, params) {
           ${newsHtml}
         </div>`
       });
+      return { status: 'success', feedId: feedBlock?.id, windowId: windowBlock?.id };
     }
-    return;
+    return { status: 'success', feedId: feedBlock?.id };
   }
 
   if (command === 'compareSymbols') {
     const { symbols, metric, period, display } = params;
 
+    let feedBlock;
     if (display === 'feed' || display === 'both') {
-      await appendBlock(sessionId, {
-        kind: 'text',
-        title: 'Symbol Comparison',
-        text: `Comparing ${symbols.join(', ')}\nMetric: ${metric}\nPeriod: ${period}\n\nMock comparison data would appear here.`
-      });
+      const html = `<div>\n        <div style=\"font-size:13px;color:#64748b\">Metric: ${metric} | Period: ${period}</div>\n        <ul style=\"margin:8px 0 0 16px\">${symbols.map((s)=>`<li>${s}</li>`).join('')}</ul>\n      </div>`;
+      feedBlock = await appendBlock(sessionId, { kind:'report', title:'Symbol Comparison', html });
     }
 
     if (display === 'window' || display === 'both') {
-      await appendBlock(sessionId, {
+      const windowBlock = await appendBlock(sessionId, {
         kind: 'winbox',
         title: 'Symbol Comparison',
         x: 'center',
@@ -288,8 +295,13 @@ async function handleCommand(sessionId, command, params) {
           </div>
         </div>`
       });
+      if (display === 'both') {
+        const linkHtml = `<div style=\"font-size:12px;color:#64748b\">Opened window: Symbol Comparison</div>`;
+        await appendBlock(sessionId, { kind:'report', title: 'Symbol Comparison', html: linkHtml, windowRefId: windowBlock?.id });
+      }
+      return { status: 'success', feedId: feedBlock?.id, windowId: windowBlock?.id };
     }
-    return;
+    return { status: 'success', feedId: feedBlock?.id };
   }
 
   if (command === 'compareRatios') {
@@ -358,13 +370,13 @@ const server = http.createServer(async (req, res) => {
       if (sessionId) env.FIN_SESSION_ID = sessionId;
       try {
         if (sessionId) {
-          await appendBlock(sessionId, { kind: 'text', title: 'Run Plan', text: `Launching plan: ${plan}` });
+          await appendBlock(sessionId, { kind: 'log', level: 'info', message: `Launching plan: ${plan}`, ts: Date.now() });
         }
         const { spawn } = await import('node:child_process');
         const child = spawn(process.execPath, args, { env, stdio: 'ignore', detached: false });
         child.on('exit', async (code) => {
           try {
-            if (sessionId) await appendBlock(sessionId, { kind: 'text', title: 'Plan Finished', text: `Plan ${plan} exited with code ${code}` });
+            if (sessionId) await appendBlock(sessionId, { kind: 'log', level: code === 0 ? 'success' : 'error', message: `Plan ${plan} exited with code ${code}`, ts: Date.now() });
           } catch {}
         });
         return json(res, 200, { ok: true });
@@ -406,9 +418,9 @@ const server = http.createServer(async (req, res) => {
       if (!sessionId || !command) return json(res, 400, { error: 'sessionId and command required' });
 
       try {
-        // Handle commands and emit blocks
-        await handleCommand(sessionId, command, params || {});
-        return json(res, 200, { ok: true });
+        // Handle commands and emit blocks; return metadata result
+        const result = await handleCommand(sessionId, command, params || {});
+        return json(res, 200, { ok: true, result });
       } catch (e) {
         return json(res, 500, { error: String(e?.message || e) });
       }

@@ -3,6 +3,7 @@ import { Box, Paper, Typography, TextField, Button, Stack, Chip } from '@mui/mat
 import { Send as SendIcon } from '@mui/icons-material';
 import { Block } from '../../types/blocks';
 import ChartBlock from '../blocks/ChartBlock';
+import { focusWinBox } from '../../services/winbox';
 
 interface ChatFeedProps {
   blocks: Block[];
@@ -28,6 +29,11 @@ const ChatFeed: React.FC<ChatFeedProps> = ({ blocks, onSendMessage }) => {
 
   const renderBlock = (block: Block, index: number) => {
     const key = block.id || `block-${index}`;
+
+    // Filter out non-chat kinds: logs/progress/window lifecycle etc.
+    if (block.kind === 'log' || block.kind === 'progress' || block.kind === 'winbox' || block.kind === 'winbox-close' || block.kind === 'winbox-clear') {
+      return null;
+    }
 
     // Handle different block types
     if (block.kind === 'request') {
@@ -102,32 +108,35 @@ const ChatFeed: React.FC<ChatFeedProps> = ({ blocks, onSendMessage }) => {
             CHART
           </Typography>
           <ChartBlock spec={block.spec} data={block.data} />
+          {(block as any).windowRefId && (
+            <Box sx={{ mt: 1 }}>
+              <Chip size="small" label="Focus Window" onClick={() => focusWinBox((block as any).windowRefId)} />
+            </Box>
+          )}
         </Paper>
       );
     }
 
-    if (block.kind === 'info') {
+    if (block.kind === 'report') {
       return (
-        <Paper key={key} sx={{ p: 1.5, mb: 1.5, bgcolor: 'info.50' }}>
-          <Typography variant="body2" sx={{ color: 'info.dark' }}>
-            {block.text}
-          </Typography>
+        <Paper key={key} sx={{ p: 1.5, mb: 1.5 }}>
+          {block.title && (
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, mb: 1 }}>
+              {block.title.toUpperCase()}
+            </Typography>
+          )}
+          <Box sx={{ '& a': { color: 'primary.main' } }} dangerouslySetInnerHTML={{ __html: (block as any).html }} />
+          {(block as any).windowRefId && (
+            <Box sx={{ mt: 1 }}>
+              <Chip size="small" label="Focus Window" onClick={() => focusWinBox((block as any).windowRefId)} />
+            </Box>
+          )}
         </Paper>
       );
     }
 
-    if (block.kind === 'error') {
-      return (
-        <Paper key={key} sx={{ p: 1.5, mb: 1.5, bgcolor: 'error.50', borderLeft: 3, borderColor: 'error.main' }}>
-          <Typography variant="caption" sx={{ color: 'error.main', fontWeight: 600, mb: 0.5 }}>
-            ERROR
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'error.dark' }}>
-            {block.text}
-          </Typography>
-        </Paper>
-      );
-    }
+    // Suppress internal info/error in chat; logs panel is for operational messages
+    if (block.kind === 'info' || block.kind === 'error') return null;
 
     // Generic block rendering
     return (

@@ -18,9 +18,9 @@
         overflow: hidden;
       }
 
-      /* Ensure WinBox windows are above MUI surfaces */
+      /* Let JS manage z-index per focus; no !important here */
       .winbox {
-        z-index: 2000 !important;
+        /* base only; focus handler sets inline z-index to >3000 */
       }
 
       /* Custom WinBox styling */
