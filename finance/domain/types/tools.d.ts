@@ -48,6 +48,52 @@ export declare function financeRemoveSession(args: {
 export type CommandResult = { status: string } & Record<string, any>;
 
 // ============================================================================
+// Core Data Schemas (handles, not raw payloads)
+// ============================================================================
+
+export type Interval = '1D' | '1W' | '1M' | '1H' | '5m';
+export type Lookback = '1M' | '3M' | '6M' | '12M' | string;
+
+export interface OhlcHandle {
+  kind: 'ohlc-handle';
+  handleId: string;
+  symbol: string;
+  interval: Interval;
+  start?: string; // ISO date
+  end?: string;   // ISO date
+  rowsHint?: number; // optional hint (e.g., cached size)
+}
+
+export interface Universe {
+  id: string;
+  symbols: string[];
+}
+
+export interface SectorMapItem { symbol: string; sector: string }
+
+// ============================================================================
+// Primitive Tools (batch-friendly, server-backed)
+// ============================================================================
+
+export declare function getUniverse(args: { sessionId?: string; universe: string }): CommandResult & { universe?: Universe };
+
+export declare function getSectorMap(args: { sessionId?: string; symbols: string[] }): CommandResult & { mapping?: SectorMapItem[] };
+
+export declare function getOhlcRangeBatch(args: { sessionId?: string; symbols: string[]; lookback: Lookback; interval: Interval }): CommandResult & { handles?: OhlcHandle[] };
+
+export declare function computeMomentumBatch(args: { sessionId?: string; handles: OhlcHandle[]; method?: 'total_return' | 'risk_adj'; lookback?: Lookback }): CommandResult & { scores?: Array<{ symbol: string; score: number }> };
+
+export declare function aggregateSectorMomentum(args: { sessionId?: string; scores: Array<{ symbol: string; score: number }>; mapping: SectorMapItem[] }): CommandResult & { sectorScores?: Array<{ sector: string; score: number; trendSpec?: any }> };
+
+export declare function rankTopKSectors(args: { sessionId?: string; sectorScores: Array<{ sector: string; score: number }>; k: number }): CommandResult & { topSectors?: Array<{ sector: string; score: number }> };
+
+export declare function selectTopNPerSector(args: { sessionId?: string; scores: Array<{ symbol: string; score: number }>; mapping: SectorMapItem[]; sectors: Array<{ sector: string }>; n: number }): CommandResult & { leaders?: Array<{ sector: string; symbols: string[] }> };
+
+export declare function buildSectorReport(args: { sessionId?: string; sectorScores: Array<{ sector: string; score: number }>; leaders: Array<{ sector: string; symbols: string[] }> }): CommandResult & { html?: string };
+
+export declare function openSectorWindows(args: { sessionId?: string; sectors: Array<{ sector: string; symbols: string[] }>; lookback?: Lookback }): CommandResult & { windowIds?: Array<{ sector: string; windowId: string }> };
+
+// ============================================================================
 // Display Commands — Content in Feed
 // ============================================================================
 

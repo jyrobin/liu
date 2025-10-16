@@ -335,6 +335,61 @@ export function openCustomWindow(args) {
   return { ok: true };
 }
 
+// ============================================================================
+// Primitive Data/Analysis Tools (batch-friendly)
+// ============================================================================
+
+function postCommand(map, command, params) {
+  const url = ensureUrl(map.serverUrl);
+  const resp = postJSONSync(`${url}/api/command`, { sessionId: map.sessionId, command: { command, params } }) || {};
+  return resp.result || { status: 'ok' };
+}
+
+export function getUniverse(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'getUniverse', { universe: args.universe });
+}
+
+export function getSectorMap(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'getSectorMap', { symbols: args.symbols });
+}
+
+export function getOhlcRangeBatch(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'getOhlcRangeBatch', { symbols: args.symbols, lookback: args.lookback, interval: args.interval });
+}
+
+export function computeMomentumBatch(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'computeMomentumBatch', { handles: args.handles, method: args.method, lookback: args.lookback });
+}
+
+export function aggregateSectorMomentum(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'aggregateSectorMomentum', { scores: args.scores, mapping: args.mapping });
+}
+
+export function rankTopKSectors(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'rankTopKSectors', { sectorScores: args.sectorScores, k: args.k });
+}
+
+export function selectTopNPerSector(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'selectTopNPerSector', { scores: args.scores, mapping: args.mapping, sectors: args.sectors, n: args.n });
+}
+
+export function buildSectorReport(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'buildSectorReport', { sectorScores: args.sectorScores, leaders: args.leaders });
+}
+
+export function openSectorWindows(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'openSectorWindows', { sectors: args.sectors, lookback: args.lookback });
+}
+
 // Append a rich HTML report block to the chat feed
 export function report(args) {
   const map = getActiveMappingSync(args.sessionId);
