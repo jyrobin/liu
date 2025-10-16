@@ -96,3 +96,18 @@ finance-full-run:
 	FIN_SESSION_TITLE="Web Demo" \
 	FIN_SESSION_ID=$(SID) \
 	node bin/liu.js --domain-root finance/domain run-plan $(PLAN) --workspace finance/workspace --run-id cli_$$(date +%s) --force
+
+# --- Finance core demos (CLI over finance/core) ---
+.PHONY: finance-core-universe
+finance-core-universe:
+	@node finance/cli/index.js --json universe get US_LARGE | jq .
+
+.PHONY: finance-core-ohlc
+finance-core-ohlc:
+	@node finance/cli/index.js --json ohlc batch --symbols AAPL,MSFT --lookback 3M --interval 1D | jq .
+
+.PHONY: finance-core-momentum
+finance-core-momentum:
+	@mkdir -p finance/workspace
+	@node finance/cli/index.js --json momentum sector --universe US_LARGE --lookback 3M --interval 1D --k 5 --n 5 --out finance/workspace/sector_report.html | jq .
+	@echo "Report written to: finance/workspace/sector_report.html"

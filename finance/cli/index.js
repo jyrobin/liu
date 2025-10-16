@@ -1,68 +1,73 @@
 #!/usr/bin/env node
-// Simple CLI to exercise finance/core
+// Finance CLI (yargs) to exercise finance/core
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 import fs from 'node:fs/promises';
 import { getUniverse, getOhlcRangeBatch, runSectorMomentum } from '../core/index.js';
 
-function parseArgs(argv){
-  const args = argv.slice(2);
-  return args;
-}
-
-async function main(){
-  const args = parseArgs(process.argv);
-  const cmd = args[0];
-  if (!cmd || cmd === 'help') return usage();
-
-  if (cmd === 'universe' && args[1] === 'get'){
-    const name = args[2] || 'US_LARGE';
-    const uni = getUniverse(name);
-    console.log(JSON.stringify(uni, null, 2));
-    return;
-  }
-
-  if (cmd === 'ohlc' && args[1] === 'batch'){
-    const symbolsArg = pickFlag(args, '--symbols') || 'AAPL,MSFT';
-    const lookback = pickFlag(args, '--lookback') || '3M';
-    const interval = pickFlag(args, '--interval') || '1D';
-    const symbols = symbolsArg.split(',').map(s=>s.trim()).filter(Boolean);
-    const handles = await getOhlcRangeBatch(symbols, { lookback, interval });
-    console.log(JSON.stringify({ handles }, null, 2));
-    return;
-  }
-
-  if (cmd === 'momentum' && args[1] === 'sector'){
-    const universe = pickFlag(args, '--universe') || 'US_LARGE';
-    const lookback = pickFlag(args, '--lookback') || '3M';
-    const k = Number(pickFlag(args, '--k') || 5);
-    const n = Number(pickFlag(args, '--n') || 5);
-    const out = pickFlag(args, '--out');
-    const { html, sectorScores, leaders } = await runSectorMomentum({ universe, lookback, k, n });
-    console.log(JSON.stringify({ sectorScores, leaders }, null, 2));
-    if (out){ await fs.writeFile(out, html, 'utf8'); console.error(`Wrote report: ${out}`); }
-    return;
-  }
-
-  return usage(`Unknown command: ${cmd}`);
-}
-
-function pickFlag(args, flag){
-  const i = args.indexOf(flag);
-  if (i >= 0 && i+1 < args.length) return args[i+1];
-  return undefined;
-}
-
-function usage(err){
-  if (err) console.error(err);
-  console.error(`
-Finance CLI (Phase 2)
-
-Usage:
-  finance cli universe get <name>
-  finance cli ohlc batch --symbols AAPL,MSFT --lookback 3M --interval 1D
-  finance cli momentum sector --universe US_LARGE --lookback 3M --k 5 --n 5 [--out report.html]
-`);
-  process.exit(err ? 1 : 0);
-}
-
-main().catch((e)=>{ console.error(e?.stack||e); process.exit(1); });
-
+await yargs(hideBin(process.argv))
+  .scriptName('finance')
+  // Global options
+  .option('json', {
+    type: 'boolean',
+    desc: 'Output JSON for machine-friendly use',
+    global: true,
+    default: false,
+  })
+  .option('out', {
+    type: 'string',
+    desc: 'Write report (e.g., HTML) to file',
+    global: true,
+  })
+  // Universe
+  .command('universe get <name>', 'Get a universe', (y) =>
+    y.positional('name', { type: 'string', desc: 'Universe name' }),
+    async (args) => {
+      const uni = getUniverse(args.name);
+      if (args.json) console.log(JSON.stringify(uni, null, 2));
+      else console.log(uni);
+    }
+  )
+  // OHLC batch
+  .command('ohlc batch', 'Get OHLC handles for symbols', (y) =>
+    y
+      .option('symbols', { type: 'string', demandOption: true, desc: 'Comma-separated symbols' })
+      .option('lookback', { type: 'string', default: '3M' })
+      .option('interval', { type: 'string', default: '1D' }),
+    async (args) => {
+      const symbols = String(args.symbols).split(',').map((s) => s.trim()).filter(Boolean);
+      const handles = await getOhlcRangeBatch(symbols, { lookback: args.lookback, interval: args.interval });
+      const payload = { handles };
+      if (args.json) console.log(JSON.stringify(payload, null, 2));
+      else console.log(payload);
+    }
+  )
+  // Momentum: sector
+  .command('momentum sector', 'Run sector momentum pipeline', (y) =>
+    y
+      .option('universe', { type: 'string', default: 'US_LARGE' })
+      .option('lookback', { type: 'string', default: '3M' })
+      .option('interval', { type: 'string', default: '1D' })
+      .option('k', { type: 'number', default: 5 })
+      .option('n', { type: 'number', default: 5 }),
+    async (args) => {
+      const { html, sectorScores, leaders } = await runSectorMomentum({
+        universe: args.universe,
+        lookback: args.lookback,
+        interval: args.interval,
+        k: args.k,
+        n: args.n,
+      });
+      const summary = { sectorScores, leaders };
+      if (args.json) console.log(JSON.stringify(summary, null, 2));
+      else console.log(summary);
+      if (args.out) {
+        await fs.writeFile(String(args.out), html, 'utf8');
+        console.error(`Wrote report: ${args.out}`);
+      }
+    }
+  )
+  .demandCommand(1, 'Please specify a command')
+  .strict()
+  .help()
+  .parse();
