@@ -19,6 +19,15 @@ await yargs(hideBin(process.argv))
     desc: 'Write report (e.g., HTML) to file',
     global: true,
   })
+  .option('mock', {
+    type: 'boolean',
+    desc: 'Use synthetic data (no network)',
+    global: true,
+    default: false,
+  })
+  .middleware((argv) => {
+    process.env.FINANCE_CORE_USE_MOCK = argv.mock ? '1' : '0';
+  })
   // Universe
   .command('universe get <name>', 'Get a universe', (y) =>
     y.positional('name', { type: 'string', desc: 'Universe name' }),

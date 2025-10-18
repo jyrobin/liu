@@ -19,7 +19,13 @@
     "test": "node tests/run-inmemory-test.js",
     "e2e": "bash tests/cli-stepping-test.sh && bash tests/repl-stepping-test.sh"
   },
-  "keywords": ["liu", "typescript", "sandbox", "workflow", "plans"],
+  "keywords": [
+    "liu",
+    "typescript",
+    "sandbox",
+    "workflow",
+    "plans"
+  ],
   "license": "UNLICENSED",
   "engines": {
     "node": ">=18"
@@ -29,6 +35,7 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
+    "yahoo-finance2": "^3.10.0",
     "yargs": "^17.7.2"
   }
 }

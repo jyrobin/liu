@@ -142,3 +142,4 @@ vite.config.ts.timestamp-*
 .liu-runs
 data
 finance/cache
+cache

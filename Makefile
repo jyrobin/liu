@@ -111,3 +111,9 @@ finance-core-momentum:
 	@mkdir -p finance/workspace
 	@node finance/cli/index.js --json momentum sector --universe US_LARGE --lookback 3M --interval 1D --k 5 --n 5 --out finance/workspace/sector_report.html | jq .
 	@echo "Report written to: finance/workspace/sector_report.html"
+
+.PHONY: finance-core-momentum-live
+finance-core-momentum-live:
+	@mkdir -p finance/workspace
+	@FINANCE_CORE_USE_MOCK=0 node finance/cli/index.js --json momentum sector --universe US_LARGE --lookback 3M --interval 1D --k 5 --n 5 --out finance/workspace/sector_report_live.html | jq .
+	@echo "Live report written to: finance/workspace/sector_report_live.html"

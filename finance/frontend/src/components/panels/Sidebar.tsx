@@ -18,6 +18,7 @@ import {
   Refresh as RefreshIcon,
   TrendingUp as TrendingUpIcon,
   CompareArrows as CompareArrowsIcon,
+  AutoGraph as AutoGraphIcon,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -107,6 +108,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenWindow, onRunPlan, onReset }) =
             <ListItemText
               primary="Chart (both) Demo"
               secondary="Inline chart + window"
+              primaryTypographyProps={{ variant: 'body2' }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </ListItemButton>
+          <ListItemButton onClick={() => onRunPlan('sector_momentum_primitives')}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <AutoGraphIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="Sector Momentum (Live)"
+              secondary="Real Yahoo Finance slice"
               primaryTypographyProps={{ variant: 'body2' }}
               secondaryTypographyProps={{ variant: 'caption' }}
             />

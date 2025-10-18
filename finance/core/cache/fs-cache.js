@@ -33,4 +33,3 @@ export async function readJSON(kind, id) {
   const t = await fs.readFile(p, 'utf8');
   return JSON.parse(t);
 }
-

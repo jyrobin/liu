@@ -4,6 +4,18 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fssync from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {
+  getUniverse as coreGetUniverse,
+  getSectorMap as coreGetSectorMap,
+  getOhlcRangeBatch as coreGetOhlcRangeBatch,
+  computeMomentumBatch as coreComputeMomentumBatch,
+  aggregateByGroup as coreAggregateByGroup,
+  rankTopK as coreRankTopK,
+  selectTopNPerGroup as coreSelectTopNPerGroup,
+  buildSectorMomentumReport as coreBuildSectorMomentumReport,
+  renderHTML as coreRenderHTML,
+  runSectorMomentum as coreRunSectorMomentum,
+} from '../core/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +42,22 @@ async function loadSessionFile(id) { try { const t = await fs.readFile(path.join
 async function saveSessionFile(id, obj) { await fs.writeFile(path.join(SESS_DIR, `${id}.json`), JSON.stringify(obj, null, 2)); }
 
 function getSession(id) { if (!sessions.has(id)) sessions.set(id, { meta: null, blocks: [], clients: new Set() }); return sessions.get(id); }
+
+async function withMockMode(mockFlag, fn) {
+  const prevMock = process.env.FINANCE_CORE_USE_MOCK;
+  if (mockFlag === true || mockFlag === '1') process.env.FINANCE_CORE_USE_MOCK = '1';
+  else if (mockFlag === false || mockFlag === '0') process.env.FINANCE_CORE_USE_MOCK = '0';
+  else if (typeof mockFlag === 'string') {
+    if (mockFlag.toLowerCase() === 'true') process.env.FINANCE_CORE_USE_MOCK = '1';
+    if (mockFlag.toLowerCase() === 'false') process.env.FINANCE_CORE_USE_MOCK = '0';
+  }
+  try {
+    return await fn();
+  } finally {
+    if (prevMock === undefined) delete process.env.FINANCE_CORE_USE_MOCK;
+    else process.env.FINANCE_CORE_USE_MOCK = prevMock;
+  }
+}
 
 async function initSession({ id, title }) {
   const now = Date.now();
@@ -67,6 +95,58 @@ async function appendBlock(sessionId, block) {
   if (idx.sessions[sessionId]) { idx.sessions[sessionId].updatedAt = s.meta.updatedAt; await saveIndex(idx); }
   for (const res of s.clients) { try { sseSend(res, 'block', b); } catch {} }
   return b;
+}
+
+async function spawnSectorWindows(sessionId, sectors, { lookback='3M', interval='1D', mock }={}) {
+  const list = Array.isArray(sectors) ? sectors : [];
+  if (!list.length) return [];
+  const uniqueSymbols = Array.from(new Set(list.flatMap((s) => Array.isArray(s?.symbols) ? s.symbols : []).filter(Boolean)));
+  const scoreMap = new Map();
+  if (uniqueSymbols.length) {
+    await withMockMode(mock, async () => {
+      const handles = await coreGetOhlcRangeBatch(uniqueSymbols, { lookback, interval });
+      const momentum = await coreComputeMomentumBatch(handles, { method: 'total_return', lookback });
+      for (const item of momentum?.scores || []) {
+        scoreMap.set(item.symbol, Number(item.score || 0));
+      }
+    });
+  }
+
+  const windowIds = [];
+  const baseX = 120;
+  const baseY = 80;
+  let offset = 0;
+  for (const sectorInfo of list) {
+    const sectorName = sectorInfo?.sector || 'Sector';
+    const symbols = Array.isArray(sectorInfo?.symbols) ? sectorInfo.symbols : [];
+    if (!symbols.length) continue;
+    const rowsHtml = symbols.map((sym) => {
+      const score = scoreMap.has(sym) ? `${(scoreMap.get(sym) * 100).toFixed(2)}%` : 'n/a';
+      return `<tr><td style="padding:4px 8px;font-weight:600;">${sym}</td><td style="padding:4px 8px;text-align:right;color:#0f172a;">${score}</td></tr>`;
+    }).join('');
+    const tableHtml = `<table style="width:100%;border-collapse:collapse;margin-top:12px;">
+      <thead><tr><th style="text-align:left;padding:4px 8px;color:#64748b;">Symbol</th><th style="text-align:right;padding:4px 8px;color:#64748b;">3M Momentum</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>`;
+    const html = `<div style="padding:18px">
+      <h3 style="margin:0 0 12px;font-size:18px;">${sectorName} Leaders</h3>
+      <div style="font-size:13px;color:#475569;">Lookback: ${lookback} · Interval: ${interval}</div>
+      ${tableHtml}
+      <p style="margin-top:16px;font-size:12px;color:#94a3b8;">Scores reflect total-return momentum over the selected lookback.</p>
+    </div>`;
+    const block = await appendBlock(sessionId, {
+      kind: 'winbox',
+      title: `${sectorName} Leaders`,
+      width: 420,
+      height: 360,
+      x: baseX + offset * 40,
+      y: baseY + offset * 30,
+      html,
+    });
+    windowIds.push({ sector: sectorName, windowId: block.id });
+    offset += 1;
+  }
+  return windowIds;
 }
 
 async function readJson(req) { const chunks = []; for await (const c of req) chunks.push(c); const t = Buffer.concat(chunks).toString('utf8'); try { return t ? JSON.parse(t) : {}; } catch { return {}; } }
@@ -124,6 +204,106 @@ async function handleCommand(sessionId, command, params) {
       text: params.text || ''
     });
     return { status: 'success', textId: b.id };
+  }
+
+  if (command === 'getUniverse') {
+    const universeName = params?.universe || 'US_LARGE';
+    const universe = coreGetUniverse(universeName);
+    return { status: 'success', universe };
+  }
+
+  if (command === 'getSectorMap') {
+    const symbols = Array.isArray(params?.symbols) ? params.symbols : [];
+    const mapping = await withMockMode(params?.mock, () => coreGetSectorMap(symbols));
+    return { status: 'success', mapping };
+  }
+
+  if (command === 'getOhlcRangeBatch') {
+    const symbols = Array.isArray(params?.symbols) ? params.symbols : [];
+    const lookback = params?.lookback || '3M';
+    const interval = params?.interval || '1D';
+    const handles = await withMockMode(params?.mock, () => coreGetOhlcRangeBatch(symbols, { lookback, interval }));
+    return { status: 'success', handles };
+  }
+
+  if (command === 'computeMomentumBatch') {
+    const handles = Array.isArray(params?.handles) ? params.handles : [];
+    const method = params?.method || 'total_return';
+    const lookback = params?.lookback || '3M';
+    const result = await withMockMode(params?.mock, () => coreComputeMomentumBatch(handles, { method, lookback }));
+    return { status: 'success', scores: result?.scores || [] };
+  }
+
+  if (command === 'aggregateSectorMomentum') {
+    const scores = Array.isArray(params?.scores) ? params.scores : [];
+    const mapping = Array.isArray(params?.mapping) ? params.mapping : [];
+    const sectorScores = coreAggregateByGroup(scores, mapping, 'sector');
+    return { status: 'success', sectorScores };
+  }
+
+  if (command === 'rankTopKSectors') {
+    const sectorScores = Array.isArray(params?.sectorScores) ? params.sectorScores : [];
+    const k = Number(params?.k || 0);
+    const topSectors = coreRankTopK(sectorScores, k);
+    return { status: 'success', topSectors };
+  }
+
+  if (command === 'selectTopNPerSector') {
+    const scores = Array.isArray(params?.scores) ? params.scores : [];
+    const mapping = Array.isArray(params?.mapping) ? params.mapping : [];
+    const sectors = Array.isArray(params?.sectors) ? params.sectors : [];
+    const n = Number(params?.n || 0);
+    const leaders = coreSelectTopNPerGroup(scores, mapping, sectors, n);
+    return { status: 'success', leaders };
+  }
+
+  if (command === 'buildSectorReport') {
+    const sectorScores = Array.isArray(params?.sectorScores) ? params.sectorScores : [];
+    const leaders = Array.isArray(params?.leaders) ? params.leaders : [];
+    const report = coreBuildSectorMomentumReport({ sectorScores, leaders });
+    const html = coreRenderHTML(report);
+    return { status: 'success', report, html };
+  }
+
+  if (command === 'openSectorWindows') {
+    const sectors = Array.isArray(params?.sectors) ? params.sectors : [];
+    const lookback = params?.lookback || '3M';
+    const interval = params?.interval || '1D';
+    if (!sectors.length) return { status: 'success', windowIds: [] };
+    const windowIds = await spawnSectorWindows(sessionId, sectors, { lookback, interval, mock: params?.mock });
+    return { status: 'success', windowIds };
+  }
+
+  if (command === 'runSectorMomentum') {
+    const lookback = params?.lookback || '3M';
+    const interval = params?.interval || '1D';
+    const k = params?.k ?? 5;
+    const n = params?.n ?? 5;
+    const result = await coreRunSectorMomentum({
+      universe: params?.universe || 'US_LARGE',
+      lookback,
+      interval,
+      k,
+      n,
+      mock: params?.mock,
+    });
+    const reportBlock = await appendBlock(sessionId, {
+      kind: 'report',
+      title: `Sector Momentum (${lookback})`,
+      html: result?.html || '',
+    });
+    let windowIds = [];
+    if (params?.openWindows !== false) {
+      windowIds = await spawnSectorWindows(sessionId, result?.leaders || [], { lookback, interval, mock: params?.mock });
+    }
+    return {
+      status: 'success',
+      reportId: reportBlock.id,
+      html: result?.html || '',
+      sectorScores: result?.sectorScores || [],
+      leaders: result?.leaders || [],
+      windowIds,
+    };
   }
 
   // Mock implementations for demo (TODO: implement real logic)

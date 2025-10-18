@@ -20,38 +20,38 @@ Scope Guardrails
 Phased Plan (with checkboxes)
 
 Phase 1 — Core Foundation (finance/core)
-- [ ] Project skeleton (index.ts, types.ts)
-- [ ] Universe store (universe.ts)
-  - [ ] getUniverse(name) → { id, symbols }
-- [ ] Mapping provider (mapping.ts)
-  - [ ] getSectorMap(symbols) → [{ symbol, sector }]
-- [ ] OHLC store (ohlc.ts)
-  - [ ] OhlcHandle type (handleId, symbol, interval, range)
-  - [ ] getOhlcRangeBatch(symbols, { lookback, interval }) → OhlcHandle[]
-  - [ ] fetchOhlc(handleId) → TimeSeriesFrame<OhlcRow> (for CLI debug)
-- [ ] Returns/Momentum engine (momentum.ts)
-  - [ ] computeReturnsBatch(handles, lookback)
-  - [ ] computeMomentumBatch(handles, { method: 'total_return'|'risk_adj', lookback })
-- [ ] Aggregation helpers (aggregate.ts)
-  - [ ] aggregateByGroup(scores, mapping, 'sector') → [{ sector, score }]
-  - [ ] rankTopK(groupedScores, k)
-  - [ ] selectTopNPerGroup(scores, mapping, topGroups, n)
-- [ ] Report model (report.ts)
-  - [ ] Report, ReportSection (table/list/text/figure/grid)
-  - [ ] Builders: sector momentum report (table + leaders list)
-- [ ] Renderers (renderers/html.ts)
-  - [ ] renderHTML(report) → string (inline styles)
-  - [ ] (optional) renderJSON(report)
-- [ ] Cache (cache/*)
-  - [ ] ID hashing for handles (symbol+range+interval)
-  - [ ] read/write helpers
+- [x] Project skeleton (index.js, types.js)
+- [x] Universe store (universe.js)
+  - [x] getUniverse(name) → { id, symbols }
+- [x] Mapping provider (mapping.js)
+  - [x] getSectorMap(symbols) → [{ symbol, sector }]
+- [x] OHLC store (ohlc.js)
+  - [x] OhlcHandle type (handleId, symbol, interval, range)
+  - [x] getOhlcRangeBatch(symbols, { lookback, interval }) → OhlcHandle[]
+  - [x] fetchOhlc(handleId) → OHLC dataset
+- [x] Returns/Momentum engine (momentum.js)
+  - [x] computeReturnsBatch(handles, lookback)
+  - [x] computeMomentumBatch(handles, { method: 'total_return'|'risk_adj', lookback })
+- [x] Aggregation helpers (aggregate.js)
+  - [x] aggregateByGroup(scores, mapping, 'sector') → [{ sector, score }]
+  - [x] rankTopK(groupedScores, k)
+  - [x] selectTopNPerGroup(scores, mapping, topGroups, n)
+- [x] Report model (report.js)
+  - [x] Report, ReportSection (table/list/text/figure/grid)
+  - [x] Builders: sector momentum report (table + leaders list)
+- [x] Renderers (renderers/html.js, renderers/json.js)
+  - [x] renderHTML(report) → string (inline styles)
+  - [x] renderJSON(report)
+- [x] Cache (cache/*)
+  - [x] ID hashing for handles (symbol+range+interval)
+  - [x] read/write helpers
 
 Phase 2 — CLI (finance/cli)
-- [ ] CLI skeleton (bin/finance or src/index.ts)
-- [ ] Command: universe get <name>
-- [ ] Command: ohlc batch --symbols AAPL,MSFT --lookback 3M --interval 1D
-- [ ] Command: momentum sector --universe US_LARGE --lookback 3M --k 5 --n 5
-  - [ ] Calls core pipeline, prints summary, writes HTML report to stdout/file
+- [x] CLI skeleton (yargs entry)
+- [x] Command: universe get <name>
+- [x] Command: ohlc batch --symbols AAPL,MSFT --lookback 3M --interval 1D
+- [x] Command: momentum sector --universe US_LARGE --lookback 3M --k 5 --n 5
+  - [x] Calls core pipeline, prints summary, writes HTML report to file
 
 Phase 3 — Liu Mapping (domain types/tools)
 - [ ] Ensure Liu d.ts mirrors core (OhlcHandle, Universe, SectorMapItem, etc.) at high level
@@ -72,4 +72,3 @@ Open Questions / Later Slices
 - Data source adapters (APIs, DB) and richer cache (columnar)
 - Fundamentals/Filings/News/Macro cores reusing the same Report + aggregation surfaces
 - MCP integration for discovery (later), agent profiles, intent routing
-

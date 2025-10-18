@@ -1,5 +1,7 @@
 // OHLC store: generate synthetic OHLC and cache via handles
-import { hashId, writeJSON, readJSON } from './cache/fs-cache.js';
+import { hashId, writeJSON, readJSON, cachePath } from './cache/fs-cache.js';
+import { fetchOhlc as fetchYahooOhlc } from '../data/providers/yahoo.js';
+import fssync from 'node:fs';
 
 /**
  * Create a handle id for an OHLC request
@@ -33,13 +35,30 @@ function round(x){ return Math.round(x*100)/100 }
  * getOhlcRangeBatch returns handles and writes cache files (Phase 1 mock)
  */
 export async function getOhlcRangeBatch(symbols, { lookback='3M', interval='1D' }={}){
+  const useMock = process.env.FINANCE_CORE_USE_MOCK === '1';
   const days = lookbackToDays(lookback);
   const handles = [];
   for (const s of (symbols||[])){
     const handleId = makeHandleId(s, lookback, interval);
-    const rows = synthOhlc(s, days);
-    await writeJSON('ohlc', handleId, { symbol: s, interval, rows });
-    handles.push({ kind: 'ohlc-handle', handleId, symbol: s, interval, rowsHint: rows.length });
+    const cacheFile = cachePath('ohlc', handleId);
+    if (!fssync.existsSync(cacheFile)){
+      let rows;
+      let source = 'mock';
+      if (!useMock){
+        try {
+          rows = await fetchYahooOhlc(mapYahooParams({ symbol: s, lookback, interval }));
+          source = 'yahoo';
+        } catch (err) {
+          console.warn(`[finance-core] Yahoo fetch failed for ${s} (${lookback}/${interval}):`, err?.message || err);
+        }
+      }
+      if (!rows){
+        rows = synthOhlc(s, days);
+        source = 'mock';
+      }
+      await writeJSON('ohlc', handleId, { symbol: s, interval, lookback, source, rows });
+    }
+    handles.push({ kind: 'ohlc-handle', handleId, symbol: s, interval, rowsHint: useMock ? days : undefined });
   }
   return handles;
 }
@@ -59,3 +78,27 @@ function lookbackToDays(lb){
   return 66;
 }
 
+function mapYahooParams({ symbol, lookback, interval }){
+  const period = toYahooPeriod(lookback);
+  const yfInterval = toYahooInterval(interval);
+  return { symbol, period, interval: yfInterval };
+}
+
+function toYahooPeriod(lookback){
+  if (lookback === '1M') return '1mo';
+  if (lookback === '3M') return '3mo';
+  if (lookback === '6M') return '6mo';
+  if (lookback === '12M' || lookback === '1Y') return '1y';
+  const m = /^([0-9]+)M$/.exec(lookback||'');
+  if (m) return `${m[1]}mo`;
+  return '3mo';
+}
+
+function toYahooInterval(interval){
+  if (interval === '1D') return '1d';
+  if (interval === '1W') return '1wk';
+  if (interval === '1M') return '1mo';
+  if (interval === '1H') return '1h';
+  if (interval === '5m') return '5m';
+  return '1d';
+}

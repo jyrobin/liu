@@ -12,6 +12,10 @@ import { renderHTML } from '../renderers/html.js';
  * @param {{ universe?: string, lookback?: string, interval?: string, k?: number, n?: number }} opts
  */
 export async function runSectorMomentum(opts={}){
+  const prevMock = process.env.FINANCE_CORE_USE_MOCK;
+  if (opts.mock === true) process.env.FINANCE_CORE_USE_MOCK = '1';
+  else if (opts.mock === false) process.env.FINANCE_CORE_USE_MOCK = '0';
+  try {
   const universeName = opts.universe || 'US_LARGE';
   const lookback = opts.lookback || '3M';
   const interval = opts.interval || '1D';
@@ -19,7 +23,7 @@ export async function runSectorMomentum(opts={}){
   const n = Number(opts.n || 5);
 
   const uni = getUniverse(universeName);
-  const mapping = getSectorMap(uni.symbols);
+  const mapping = await getSectorMap(uni.symbols);
   const handles = await getOhlcRangeBatch(uni.symbols, { lookback, interval });
   const momentum = await computeMomentumBatch(handles, { method: 'total_return', lookback });
   const sectorScores = aggregateByGroup(momentum.scores, mapping, 'sector');
@@ -30,5 +34,8 @@ export async function runSectorMomentum(opts={}){
   const html = renderHTML(report);
 
   return { report, html, sectorScores: topSectors, leaders };
+  } finally {
+    if (prevMock === undefined) delete process.env.FINANCE_CORE_USE_MOCK;
+    else process.env.FINANCE_CORE_USE_MOCK = prevMock;
+  }
 }
-

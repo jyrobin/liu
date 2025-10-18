@@ -390,6 +390,19 @@ export function openSectorWindows(args) {
   return postCommand(map, 'openSectorWindows', { sectors: args.sectors, lookback: args.lookback });
 }
 
+export function runSectorMomentum(args = {}) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'runSectorMomentum', {
+    universe: args.universe,
+    lookback: args.lookback,
+    interval: args.interval,
+    k: args.k,
+    n: args.n,
+    mock: args.mock,
+    openWindows: args.openWindows,
+  });
+}
+
 // Append a rich HTML report block to the chat feed
 export function report(args) {
   const map = getActiveMappingSync(args.sessionId);
