@@ -49,6 +49,8 @@ export interface WinBoxBlock extends BaseBlock {
   left?: number;
   className?: string;
   html?: string;
+  component?: string;
+  componentProps?: Record<string, any>;
 }
 
 export interface WinBoxCloseBlock extends BaseBlock {

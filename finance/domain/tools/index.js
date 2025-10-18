@@ -390,6 +390,18 @@ export function openSectorWindows(args) {
   return postCommand(map, 'openSectorWindows', { sectors: args.sectors, lookback: args.lookback });
 }
 
+export function openOhlcChart(args) {
+  const map = getActiveMappingSync(args.sessionId);
+  return postCommand(map, 'openOhlcChart', {
+    symbol: args.symbol,
+    lookback: args.lookback,
+    interval: args.interval,
+    width: args.width,
+    height: args.height,
+    mock: args.mock,
+  });
+}
+
 export function runSectorMomentum(args = {}) {
   const map = getActiveMappingSync(args.sessionId);
   return postCommand(map, 'runSectorMomentum', {

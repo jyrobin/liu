@@ -8,6 +8,7 @@ import {
   getUniverse as coreGetUniverse,
   getSectorMap as coreGetSectorMap,
   getOhlcRangeBatch as coreGetOhlcRangeBatch,
+  fetchOhlc as coreFetchOhlc,
   computeMomentumBatch as coreComputeMomentumBatch,
   aggregateByGroup as coreAggregateByGroup,
   rankTopK as coreRankTopK,
@@ -149,6 +150,124 @@ async function spawnSectorWindows(sessionId, sectors, { lookback='3M', interval=
   return windowIds;
 }
 
+function isFiniteNumber(val) {
+  return typeof val === 'number' && Number.isFinite(val);
+}
+
+function computeSMA(values, period) {
+  const out = [];
+  const window = [];
+  let sum = 0;
+  for (const value of values) {
+    if (!isFiniteNumber(value)) {
+      out.push(null);
+      continue;
+    }
+    window.push(value);
+    sum += value;
+    if (window.length < period) {
+      out.push(null);
+      continue;
+    }
+    if (window.length > period) {
+      sum -= window.shift();
+    }
+    out.push(sum / period);
+  }
+  return out;
+}
+
+function computeEMA(values, period) {
+  const out = [];
+  if (period <= 0) return values.map(() => null);
+  const k = 2 / (period + 1);
+  let ema = null;
+  let sum = 0;
+  let count = 0;
+  for (const value of values) {
+    if (!isFiniteNumber(value)) {
+      out.push(ema);
+      continue;
+    }
+    count += 1;
+    if (count < period) {
+      sum += value;
+      out.push(null);
+      continue;
+    }
+    if (count === period) {
+      sum += value;
+      ema = sum / period;
+      out.push(ema);
+      continue;
+    }
+    ema = ema == null ? value : ema + k * (value - ema);
+    out.push(ema);
+  }
+  return out;
+}
+
+function computeMACD(values, fast = 12, slow = 26, signal = 9) {
+  const fastEma = computeEMA(values, fast);
+  const slowEma = computeEMA(values, slow);
+  const macdLine = values.map((_, idx) => {
+    const fastVal = fastEma[idx];
+    const slowVal = slowEma[idx];
+    if (!isFiniteNumber(fastVal) || !isFiniteNumber(slowVal)) return null;
+    return fastVal - slowVal;
+  });
+  const signalLine = computeEMA(macdLine, signal);
+  return values.map((_, idx) => {
+    const macdVal = macdLine[idx];
+    const signalVal = signalLine[idx];
+    if (!isFiniteNumber(macdVal) || !isFiniteNumber(signalVal)) return null;
+    return {
+      macd: macdVal,
+      signal: signalVal,
+      histogram: macdVal - signalVal,
+    };
+  });
+}
+
+function buildLightweightOhlc(rows) {
+  const price = [];
+  const volumes = [];
+  const closes = [];
+  for (const row of rows || []) {
+    price.push({
+      time: row.date,
+      open: Number(row.open ?? 0),
+      high: Number(row.high ?? 0),
+      low: Number(row.low ?? 0),
+      close: Number(row.close ?? 0),
+    });
+    const close = Number(row.close ?? 0);
+    const open = Number(row.open ?? 0);
+    const volume = Number(row.volume ?? 0);
+    volumes.push({
+      time: row.date,
+      value: volume,
+      color: close >= open ? 'rgba(74, 222, 128, 0.6)' : 'rgba(248, 113, 113, 0.6)',
+    });
+    closes.push(close);
+  }
+
+  const sma20Values = computeSMA(closes, 20);
+  const sma50Values = computeSMA(closes, 50);
+  const macdSeries = computeMACD(closes, 12, 26, 9);
+
+  const sma20 = price.map((bar, idx) => ({ time: bar.time, value: sma20Values[idx] }));
+  const sma50 = price.map((bar, idx) => ({ time: bar.time, value: sma50Values[idx] }));
+  const macd = price.map((bar, idx) => ({
+    time: bar.time,
+    macd: macdSeries[idx]?.macd ?? null,
+    signal: macdSeries[idx]?.signal ?? null,
+    histogram: macdSeries[idx]?.histogram ?? null,
+  }));
+
+  return { price, volumes, sma20, sma50, macd };
+}
+
 async function readJson(req) { const chunks = []; for await (const c of req) chunks.push(c); const t = Buffer.concat(chunks).toString('utf8'); try { return t ? JSON.parse(t) : {}; } catch { return {}; } }
 function json(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); }
 function notFound(res) { res.writeHead(404); res.end('Not found'); }
@@ -272,6 +391,47 @@ async function handleCommand(sessionId, command, params) {
     if (!sectors.length) return { status: 'success', windowIds: [] };
     const windowIds = await spawnSectorWindows(sessionId, sectors, { lookback, interval, mock: params?.mock });
     return { status: 'success', windowIds };
+  }
+
+  if (command === 'openOhlcChart') {
+    const symbol = String(params?.symbol || '').trim().toUpperCase();
+    if (!symbol) return { status: 'error', message: 'symbol required' };
+    const lookback = params?.lookback || '6M';
+    const interval = params?.interval || '1D';
+    const width = Number(params?.width || 960);
+    const height = Number(params?.height || 640);
+    const handles = await withMockMode(params?.mock, () => coreGetOhlcRangeBatch([symbol], { lookback, interval }));
+    const handle = handles?.[0];
+    if (!handle) return { status: 'error', message: `No OHLC handle for ${symbol}` };
+    const payload = await withMockMode(params?.mock, () => coreFetchOhlc(handle.handleId));
+    const rows = payload?.rows || [];
+    if (!rows.length) return { status: 'error', message: `No OHLC rows for ${symbol}` };
+    const prepared = buildLightweightOhlc(rows);
+    const block = await appendBlock(sessionId, {
+      kind: 'winbox',
+      title: `${symbol} Technicals`,
+      width,
+      height,
+      component: 'ohlc-lightweight',
+      componentProps: {
+        symbol,
+        lookback,
+        interval,
+        source: payload?.source || (params?.mock ? 'mock' : 'yahoo'),
+        price: prepared.price,
+        volume: prepared.volumes,
+        sma20: prepared.sma20,
+        sma50: prepared.sma50,
+        macd: prepared.macd,
+      },
+    });
+    return {
+      status: 'success',
+      windowId: block.id,
+      handleId: handle.handleId,
+      rows: rows.length,
+      source: payload?.source || (params?.mock ? 'mock' : 'yahoo'),
+    };
   }
 
   if (command === 'runSectorMomentum') {

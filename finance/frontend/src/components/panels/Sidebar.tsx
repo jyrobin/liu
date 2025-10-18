@@ -19,6 +19,7 @@ import {
   TrendingUp as TrendingUpIcon,
   CompareArrows as CompareArrowsIcon,
   AutoGraph as AutoGraphIcon,
+  CandlestickChart as CandlestickChartIcon,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -108,6 +109,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onOpenWindow, onRunPlan, onReset }) =
             <ListItemText
               primary="Chart (both) Demo"
               secondary="Inline chart + window"
+              primaryTypographyProps={{ variant: 'body2' }}
+              secondaryTypographyProps={{ variant: 'caption' }}
+            />
+          </ListItemButton>
+          <ListItemButton onClick={() => onRunPlan('ohlc_chart_live')}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+              <CandlestickChartIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText
+              primary="OHLC Chart (live)"
+              secondary="TradingView lightweight"
               primaryTypographyProps={{ variant: 'body2' }}
               secondaryTypographyProps={{ variant: 'caption' }}
             />

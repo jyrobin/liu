@@ -10,7 +10,7 @@ import Canvas from './components/panels/Canvas';
 import { useSession } from './hooks/useSession';
 import { useSSE } from './hooks/useSSE';
 import { appendBlock, runPlan, resetSession } from './services/api';
-import { openWinBox, closeAllWinBoxes } from './services/winbox';
+import { openWinBox, closeAllWinBoxes, closeWinBox } from './services/winbox';
 import { Block, WinBoxBlock } from './types/blocks';
 
 function App() {
@@ -28,7 +28,6 @@ function App() {
     }
 
     if (block.kind === 'winbox-close') {
-      const { closeWinBox } = require('./services/winbox');
       closeWinBox((block as any).targetId);
       return;
     }

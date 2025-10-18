@@ -1,5 +1,9 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import { WinBoxBlock } from '../types/blocks';
 import { removeWindow } from './api';
+import { getWinBoxComponent } from '../components/winbox/registry';
 
 /**
  * WinBox Registry - tracks all open windows
@@ -7,6 +11,7 @@ import { removeWindow } from './api';
  */
 const winBoxRegistry: Record<string, any> = {};
 let nextZIndex = 3000;
+const componentRoots: Record<string, Root> = {};
 
 /**
  * Dock chip management for minimized windows
@@ -26,7 +31,17 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
   const id = String(opts.id || Date.now());
 
   try {
-    const { title = 'Window', x, y, width = 480, height = 300, className, html } = opts;
+    const {
+      title = 'Window',
+      x,
+      y,
+      width = 480,
+      height = 300,
+      className,
+      html,
+      component,
+      componentProps,
+    } = opts;
 
     // Normalize position
     const normalizePos = (val: number | string | undefined, isX: boolean, size: number) => {
@@ -64,8 +79,7 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
         } catch (err) {
           console.error('Failed to remove window:', err);
         }
-        removeDockChip(id);
-        return false; // Allow close
+        cleanupWinBox(id);
       },
       onminimize: () => {
         addDockChip(id, title, winBox, dockContainer);
@@ -80,7 +94,17 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
       },
     });
 
-    if (html) {
+    if (component) {
+      const Component = getWinBoxComponent(component);
+      if (!Component) {
+        winBox.body.innerHTML = `<div style="padding:16px;font-size:13px;color:#64748b;">Unknown component: ${component}</div>`;
+      } else {
+        winBox.body.innerHTML = '';
+        const root = createRoot(winBox.body);
+        componentRoots[id] = root;
+        root.render(React.createElement(Component, componentProps || {}));
+      }
+    } else if (html) {
       winBox.body.innerHTML = html;
     }
 
@@ -100,15 +124,16 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
  */
 export const closeWinBox = (id: string) => {
   const winBox = winBoxRegistry[id];
-  if (winBox && typeof winBox.close === 'function') {
-    try {
-      winBox.close(true);
-    } catch (err) {
-      console.error('Failed to close WinBox:', err);
-    }
+  if (!winBox || typeof winBox.close !== 'function') {
+    cleanupWinBox(id);
+    return;
   }
-  removeDockChip(id);
-  delete winBoxRegistry[id];
+  try {
+    winBox.close(true);
+  } catch (err) {
+    console.error('Failed to close WinBox:', err);
+    cleanupWinBox(id);
+  }
 };
 
 /**
@@ -192,3 +217,13 @@ export const focusWinBox = (id: string) => {
     try { wb.focus(); } catch (err) { console.error('Failed to focus WinBox:', err); }
   }
 };
+
+function cleanupWinBox(id: string) {
+  const root = componentRoots[id];
+  if (root) {
+    try { root.unmount(); } catch (err) { console.error('Failed to unmount component:', err); }
+    delete componentRoots[id];
+  }
+  removeDockChip(id);
+  delete winBoxRegistry[id];
+}

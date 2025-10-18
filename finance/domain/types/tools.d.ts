@@ -93,6 +93,13 @@ export declare function buildSectorReport(args: { sessionId?: string; sectorScor
 
 export declare function openSectorWindows(args: { sessionId?: string; sectors: Array<{ sector: string; symbols: string[] }>; lookback?: Lookback }): CommandResult & { windowIds?: Array<{ sector: string; windowId: string }> };
 
+export declare function openOhlcChart(args: { sessionId?: string; symbol: string; lookback?: Lookback; interval?: Interval; width?: number; height?: number; mock?: boolean | '1' | '0' | 'true' | 'false' }): CommandResult & {
+  windowId?: string;
+  handleId?: string;
+  rows?: number;
+  source?: string;
+};
+
 export declare function runSectorMomentum(args: { sessionId?: string; universe?: string; lookback?: Lookback; interval?: Interval; k?: number; n?: number; mock?: boolean | '1' | '0' | 'true' | 'false'; openWindows?: boolean }): CommandResult & {
   html?: string;
   sectorScores?: Array<{ sector: string; score: number }>;
