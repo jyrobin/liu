@@ -89,7 +89,8 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
       },
       onfocus: () => {
         try {
-          winBox.dom.style.zIndex = String(++nextZIndex);
+          const dom = (winBox as any)?.dom;
+          if (dom) dom.style.zIndex = String(++nextZIndex);
         } catch {}
       },
     });
@@ -109,7 +110,10 @@ export const openWinBox = (opts: WinBoxBlock, dockContainer?: HTMLElement): bool
     }
 
     // Ensure initial focus order is above MUI surfaces
-    try { winBox.dom.style.zIndex = String(++nextZIndex); } catch {}
+    try {
+      const dom = (winBox as any)?.dom;
+      if (dom) dom.style.zIndex = String(++nextZIndex);
+    } catch {}
 
     winBoxRegistry[id] = winBox;
     return true;

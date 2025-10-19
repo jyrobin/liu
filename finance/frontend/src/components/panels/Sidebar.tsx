@@ -8,13 +8,11 @@ import {
   ListItemIcon,
   Divider,
   Button,
-  Stack,
 } from '@mui/material';
 import {
   FilterList as FilterListIcon,
   ShowChart as ShowChartIcon,
   Description as DescriptionIcon,
-  PlayArrow as PlayArrowIcon,
   Refresh as RefreshIcon,
   TrendingUp as TrendingUpIcon,
   CompareArrows as CompareArrowsIcon,

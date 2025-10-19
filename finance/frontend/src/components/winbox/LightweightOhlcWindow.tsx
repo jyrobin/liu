@@ -6,6 +6,7 @@ import {
   type IChartApi,
   type BusinessDay,
   type Time,
+  type MouseEventParams,
   type CandlestickData,
   type HistogramData,
   type LineData,
@@ -340,14 +341,14 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
       macdLineSeries = chart.addLineSeries({
         priceScaleId: "macd",
         color: "#f97316",
-        lineWidth: 1.8,
+        lineWidth: 2,
       });
       macdLineSeries.setData(macdLineData);
 
       macdSignalSeries = chart.addLineSeries({
         priceScaleId: "macd",
         color: "#38bdf8",
-        lineWidth: 1.6,
+        lineWidth: 2,
       });
       macdSignalSeries.setData(macdSignalData);
     }
@@ -379,9 +380,7 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     const lastPrice = price[price.length - 1];
     if (lastPrice) updateLegend(lastPrice.time);
 
-    const crosshairHandler = (
-      param: Parameters<IChartApi["subscribeCrosshairMove"]>[0],
-    ) => {
+    const crosshairHandler = (param: MouseEventParams<Time>) => {
       const timeStr = timeToString(param.time);
       if (timeStr) {
         updateLegend(timeStr);

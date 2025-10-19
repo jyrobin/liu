@@ -83,6 +83,14 @@ finance-session-delete:
 finance-full-web:
 	node finance/server/server.js
 
+.PHONY: finance-frontend
+finance-frontend:
+	cd finance/frontend && npm run dev
+
+.PHONY: finance-frontend-typecheck
+finance-frontend-typecheck:
+	cd finance/frontend && npm exec tsc -- --noEmit
+
 .PHONY: finance-full-list-sessions
 finance-full-list-sessions:
 	@curl -s http://localhost:5280/api/sessions | jq .
