@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   createChart,
   ColorType,
@@ -9,7 +9,7 @@ import {
   type CandlestickData,
   type HistogramData,
   type LineData,
-} from 'lightweight-charts';
+} from "lightweight-charts";
 
 interface PriceBar {
   time: string;
@@ -64,29 +64,31 @@ interface LegendSnapshot {
 }
 
 function toBusinessDay(date: string): BusinessDay {
-  const [year, month, day] = date.split('-').map(Number);
+  const [year, month, day] = date.split("-").map(Number);
   return { year, month, day } as BusinessDay;
 }
 
 function timeToString(time: Time | undefined): string | null {
   if (!time) return null;
-  if (typeof time === 'string') return time;
-  if (typeof time === 'number') {
+  if (typeof time === "string") return time;
+  if (typeof time === "number") {
     const dt = new Date(time * 1000);
     return dt.toISOString().slice(0, 10);
   }
   const { year, month, day } = time as BusinessDay;
-  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 const formatNumber = (value: number | undefined, digits = 2) => {
-  if (value === undefined || Number.isNaN(value)) return '—';
+  if (value === undefined || Number.isNaN(value)) return "—";
   return value.toFixed(digits);
 };
 
 const formatInteger = (value: number | undefined) => {
-  if (value === undefined || Number.isNaN(value)) return '—';
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(value);
+  if (value === undefined || Number.isNaN(value)) return "—";
+  return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(
+    value,
+  );
 };
 
 const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
@@ -101,66 +103,113 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
   macd = [],
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const headerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  const priceSeriesData: CandlestickData[] = useMemo(() =>
-    price.map((bar) => ({
-      time: toBusinessDay(bar.time),
-      open: bar.open,
-      high: bar.high,
-      low: bar.low,
-      close: bar.close,
-    })),
-  [price]);
-
-  const volumeSeriesData: HistogramData[] = useMemo(() =>
-    volume.map((bar) => ({
-      time: toBusinessDay(bar.time),
-      value: bar.value,
-      color: bar.color,
-    })),
-  [volume]);
-
-  const sma20SeriesData: LineData[] = useMemo(() =>
-    sma20
-      .filter((point) => point.value !== null && point.value !== undefined)
-      .map((point) => ({ time: toBusinessDay(point.time), value: point.value as number })),
-  [sma20]);
-
-  const sma50SeriesData: LineData[] = useMemo(() =>
-    sma50
-      .filter((point) => point.value !== null && point.value !== undefined)
-      .map((point) => ({ time: toBusinessDay(point.time), value: point.value as number })),
-  [sma50]);
-
-  const macdHistogramData: HistogramData[] = useMemo(() =>
-    macd
-      .filter((point) => point.histogram !== null && point.histogram !== undefined)
-      .map((point) => ({
-        time: toBusinessDay(point.time),
-        value: point.histogram as number,
-        color: (point.histogram ?? 0) >= 0 ? 'rgba(16, 185, 129, 0.6)' : 'rgba(239, 68, 68, 0.6)',
+  const priceSeriesData: CandlestickData[] = useMemo(
+    () =>
+      price.map((bar) => ({
+        time: toBusinessDay(bar.time),
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
       })),
-  [macd]);
+    [price],
+  );
 
-  const macdLineData: LineData[] = useMemo(() =>
-    macd
-      .filter((point) => point.macd !== null && point.macd !== undefined)
-      .map((point) => ({ time: toBusinessDay(point.time), value: point.macd as number })),
-  [macd]);
+  const volumeSeriesData: HistogramData[] = useMemo(
+    () =>
+      volume.map((bar) => ({
+        time: toBusinessDay(bar.time),
+        value: bar.value,
+        color: bar.color,
+      })),
+    [volume],
+  );
 
-  const macdSignalData: LineData[] = useMemo(() =>
-    macd
-      .filter((point) => point.signal !== null && point.signal !== undefined)
-      .map((point) => ({ time: toBusinessDay(point.time), value: point.signal as number })),
-  [macd]);
+  const sma20SeriesData: LineData[] = useMemo(
+    () =>
+      sma20
+        .filter((point) => point.value !== null && point.value !== undefined)
+        .map((point) => ({
+          time: toBusinessDay(point.time),
+          value: point.value as number,
+        })),
+    [sma20],
+  );
 
-  const priceLookup = useMemo(() => new Map(price.map((p) => [p.time, p])), [price]);
-  const volumeLookup = useMemo(() => new Map(volume.map((p) => [p.time, p.value])), [volume]);
-  const sma20Lookup = useMemo(() => new Map(sma20.map((p) => [p.time, p.value])), [sma20]);
-  const sma50Lookup = useMemo(() => new Map(sma50.map((p) => [p.time, p.value])), [sma50]);
-  const macdLookup = useMemo(() => new Map(macd.map((p) => [p.time, p])), [macd]);
+  const sma50SeriesData: LineData[] = useMemo(
+    () =>
+      sma50
+        .filter((point) => point.value !== null && point.value !== undefined)
+        .map((point) => ({
+          time: toBusinessDay(point.time),
+          value: point.value as number,
+        })),
+    [sma50],
+  );
+
+  const macdHistogramData: HistogramData[] = useMemo(
+    () =>
+      macd
+        .filter(
+          (point) => point.histogram !== null && point.histogram !== undefined,
+        )
+        .map((point) => ({
+          time: toBusinessDay(point.time),
+          value: point.histogram as number,
+          color:
+            (point.histogram ?? 0) >= 0
+              ? "rgba(16, 185, 129, 0.6)"
+              : "rgba(239, 68, 68, 0.6)",
+        })),
+    [macd],
+  );
+
+  const macdLineData: LineData[] = useMemo(
+    () =>
+      macd
+        .filter((point) => point.macd !== null && point.macd !== undefined)
+        .map((point) => ({
+          time: toBusinessDay(point.time),
+          value: point.macd as number,
+        })),
+    [macd],
+  );
+
+  const macdSignalData: LineData[] = useMemo(
+    () =>
+      macd
+        .filter((point) => point.signal !== null && point.signal !== undefined)
+        .map((point) => ({
+          time: toBusinessDay(point.time),
+          value: point.signal as number,
+        })),
+    [macd],
+  );
+
+  const priceLookup = useMemo(
+    () => new Map(price.map((p) => [p.time, p])),
+    [price],
+  );
+  const volumeLookup = useMemo(
+    () => new Map(volume.map((p) => [p.time, p.value])),
+    [volume],
+  );
+  const sma20Lookup = useMemo(
+    () => new Map(sma20.map((p) => [p.time, p.value])),
+    [sma20],
+  );
+  const sma50Lookup = useMemo(
+    () => new Map(sma50.map((p) => [p.time, p.value])),
+    [sma50],
+  );
+  const macdLookup = useMemo(
+    () => new Map(macd.map((p) => [p.time, p])),
+    [macd],
+  );
 
   const initialLegend = useMemo<LegendSnapshot | null>(() => {
     const last = price[price.length - 1];
@@ -191,29 +240,37 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     const container = containerRef.current;
     if (!container || priceSeriesData.length === 0) return;
 
+    container.style.width = "100%";
+    container.style.height = "100%";
+
+    const host = container.parentElement || container;
+    const initialRect = host.getBoundingClientRect();
+    const headerHeight =
+      headerRef.current?.getBoundingClientRect().height ?? 0;
     const chart = createChart(container, {
-      width: container.clientWidth || 640,
-      height: container.clientHeight || 480,
+      width: Math.max(320, Math.floor(initialRect.width)) || 640,
+      height:
+        Math.max(240, Math.floor(initialRect.height - headerHeight)) || 480,
       layout: {
-        background: { type: ColorType.Solid, color: '#ffffff' },
-        textColor: '#0f172a',
+        background: { type: ColorType.Solid, color: "#ffffff" },
+        textColor: "#0f172a",
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: 'rgba(15, 23, 42, 0.3)', width: 1, style: 0 },
-        horzLine: { color: 'rgba(15, 23, 42, 0.3)', width: 1, style: 0 },
+        vertLine: { color: "rgba(15, 23, 42, 0.3)", width: 1, style: 0 },
+        horzLine: { color: "rgba(15, 23, 42, 0.3)", width: 1, style: 0 },
       },
       grid: {
-        vertLines: { color: '#e2e8f0' },
-        horzLines: { color: '#e2e8f0' },
+        vertLines: { color: "#e2e8f0" },
+        horzLines: { color: "#e2e8f0" },
       },
       timeScale: {
-        borderColor: '#cbd5e1',
+        borderColor: "#cbd5e1",
         timeVisible: true,
         secondsVisible: false,
       },
       rightPriceScale: {
-        borderColor: '#cbd5e1',
+        borderColor: "#cbd5e1",
         scaleMargins: { top: 0.05, bottom: 0.55 },
       },
     });
@@ -223,31 +280,33 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     chart.applyOptions({
       attributionLogo: {
         visible: true,
-        color: '#0ea5e9',
+        color: "#0ea5e9",
       },
     } as any);
 
     const candleSeries = chart.addCandlestickSeries({
-      upColor: '#16a34a',
-      borderUpColor: '#16a34a',
-      wickUpColor: '#16a34a',
-      downColor: '#ef4444',
-      borderDownColor: '#ef4444',
-      wickDownColor: '#ef4444',
+      upColor: "#16a34a",
+      borderUpColor: "#16a34a",
+      wickUpColor: "#16a34a",
+      downColor: "#ef4444",
+      borderDownColor: "#ef4444",
+      wickDownColor: "#ef4444",
     });
     candleSeries.setData(priceSeriesData);
 
     const volumeSeries = chart.addHistogramSeries({
-      priceScaleId: 'volume',
-      priceFormat: { type: 'volume' },
-      color: 'rgba(148, 163, 184, 0.6)',
+      priceScaleId: "volume",
+      priceFormat: { type: "volume" },
+      color: "rgba(148, 163, 184, 0.6)",
     });
-    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.55, bottom: 0.25 } });
+    volumeSeries
+      .priceScale()
+      .applyOptions({ scaleMargins: { top: 0.55, bottom: 0.25 } });
     volumeSeries.setData(volumeSeriesData);
 
     if (sma20SeriesData.length) {
       const series = chart.addLineSeries({
-        color: '#0ea5e9',
+        color: "#0ea5e9",
         lineWidth: 2,
       });
       series.setData(sma20SeriesData);
@@ -255,7 +314,7 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
 
     if (sma50SeriesData.length) {
       const series = chart.addLineSeries({
-        color: '#f97316',
+        color: "#f97316",
         lineWidth: 2,
       });
       series.setData(sma50SeriesData);
@@ -264,30 +323,40 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     let macdHistogramSeries;
     let macdLineSeries;
     let macdSignalSeries;
-    if (macdHistogramData.length || macdLineData.length || macdSignalData.length) {
+    if (
+      macdHistogramData.length ||
+      macdLineData.length ||
+      macdSignalData.length
+    ) {
       macdHistogramSeries = chart.addHistogramSeries({
-        priceScaleId: 'macd',
-        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+        priceScaleId: "macd",
+        priceFormat: { type: "price", precision: 4, minMove: 0.0001 },
       });
-      macdHistogramSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0.05 } });
+      macdHistogramSeries
+        .priceScale()
+        .applyOptions({ scaleMargins: { top: 0.8, bottom: 0.05 } });
       macdHistogramSeries.setData(macdHistogramData);
 
       macdLineSeries = chart.addLineSeries({
-        priceScaleId: 'macd',
-        color: '#f97316',
+        priceScaleId: "macd",
+        color: "#f97316",
         lineWidth: 1.8,
       });
       macdLineSeries.setData(macdLineData);
 
       macdSignalSeries = chart.addLineSeries({
-        priceScaleId: 'macd',
-        color: '#38bdf8',
+        priceScaleId: "macd",
+        color: "#38bdf8",
         lineWidth: 1.6,
       });
       macdSignalSeries.setData(macdSignalData);
     }
 
     chart.timeScale().fitContent();
+    chart.priceScale("right").applyOptions({
+      autoScale: true,
+      scaleMargins: { top: 0.08, bottom: 0.58 },
+    });
 
     const updateLegend = (time: string) => {
       const priceBar = priceLookup.get(time);
@@ -310,7 +379,9 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     const lastPrice = price[price.length - 1];
     if (lastPrice) updateLegend(lastPrice.time);
 
-    const crosshairHandler = (param: Parameters<IChartApi['subscribeCrosshairMove']>[0]) => {
+    const crosshairHandler = (
+      param: Parameters<IChartApi["subscribeCrosshairMove"]>[0],
+    ) => {
       const timeStr = timeToString(param.time);
       if (timeStr) {
         updateLegend(timeStr);
@@ -322,12 +393,20 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     chart.subscribeCrosshairMove(crosshairHandler);
 
     const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) return;
-      const { width, height } = entry.contentRect;
-      chart.applyOptions({ width, height });
+      if (!entries.length) return;
+      const { width, height } = entries[0].contentRect;
+      const headerHeightCurrent =
+        headerRef.current?.getBoundingClientRect().height ?? 0;
+      chart.applyOptions({
+        width: Math.max(320, Math.floor(width)),
+        height: Math.max(
+          240,
+          Math.floor(height - headerHeightCurrent),
+        ),
+      });
+      chart.priceScale("right").applyOptions({ autoScale: true });
     });
-    observer.observe(container);
+    observer.observe(host);
     resizeObserverRef.current = observer;
 
     return () => {
@@ -360,42 +439,50 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
     return (
       <div
         style={{
-          position: 'absolute',
+          position: "absolute",
           top: 8,
           left: 12,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '8px 16px',
-          padding: '10px 14px',
-          borderRadius: '10px',
-          background: 'rgba(248, 250, 252, 0.9)',
-          boxShadow: '0 10px 30px -20px rgba(15, 23, 42, 0.6)',
-          color: '#0f172a',
-          fontSize: '12px',
-          pointerEvents: 'none',
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "8px 16px",
+          padding: "10px 14px",
+          borderRadius: "10px",
+          background: "rgba(248, 250, 252, 0.9)",
+          boxShadow: "0 10px 30px -20px rgba(15, 23, 42, 0.6)",
+          color: "#0f172a",
+          fontSize: "12px",
+          pointerEvents: "none",
         }}
       >
-        <div style={{ fontWeight: 600, fontSize: '12px' }}>{symbol}</div>
-        <div style={{ color: '#475569' }}>{legend.time}</div>
+        <div style={{ fontWeight: 600, fontSize: "12px" }}>{symbol}</div>
+        <div style={{ color: "#475569" }}>{legend.time}</div>
         <div>O: {formatNumber(legend.open)}</div>
         <div>H: {formatNumber(legend.high)}</div>
         <div>L: {formatNumber(legend.low)}</div>
         <div>C: {formatNumber(legend.close)}</div>
         <div>Vol: {formatInteger(legend.volume)}</div>
         {legend.sma20 !== undefined && legend.sma20 !== null && (
-          <div style={{ color: '#0ea5e9' }}>SMA20: {formatNumber(legend.sma20)}</div>
+          <div style={{ color: "#0ea5e9" }}>
+            SMA20: {formatNumber(legend.sma20)}
+          </div>
         )}
         {legend.sma50 !== undefined && legend.sma50 !== null && (
-          <div style={{ color: '#f97316' }}>SMA50: {formatNumber(legend.sma50)}</div>
+          <div style={{ color: "#f97316" }}>
+            SMA50: {formatNumber(legend.sma50)}
+          </div>
         )}
         {legend.macd !== undefined && legend.macd !== null && (
-          <div style={{ color: '#f97316' }}>MACD: {formatNumber(legend.macd, 3)}</div>
+          <div style={{ color: "#f97316" }}>
+            MACD: {formatNumber(legend.macd, 3)}
+          </div>
         )}
         {legend.signal !== undefined && legend.signal !== null && (
-          <div style={{ color: '#38bdf8' }}>Signal: {formatNumber(legend.signal, 3)}</div>
+          <div style={{ color: "#38bdf8" }}>
+            Signal: {formatNumber(legend.signal, 3)}
+          </div>
         )}
         {legend.histogram !== undefined && legend.histogram !== null && (
-          <div style={{ color: legend.histogram >= 0 ? '#16a34a' : '#ef4444' }}>
+          <div style={{ color: legend.histogram >= 0 ? "#16a34a" : "#ef4444" }}>
             Hist: {formatNumber(legend.histogram, 3)}
           </div>
         )}
@@ -406,28 +493,36 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
   return (
     <div
       style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        position: 'relative',
-        background: '#ffffff',
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        position: "relative",
+        background: "#ffffff",
       }}
     >
       <div
+        ref={headerRef}
         style={{
-          padding: '10px 16px',
-          borderBottom: '1px solid rgba(15, 23, 42, 0.08)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: '#ffffff',
+          padding: "10px 16px",
+          borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "#ffffff",
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <div style={{ fontWeight: 600, color: '#0f172a' }}>{symbol} · {lookback || '—'} · {interval || '—'}</div>
-          <div style={{ fontSize: '12px', color: '#64748b' }}>
-            Source: {source || '—'} • Powered by{' '}
-            <a href="https://www.tradingview.com/" target="_blank" rel="noreferrer" style={{ color: '#0ea5e9', textDecoration: 'none' }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontWeight: 600, color: "#0f172a" }}>
+            {symbol} · {lookback || "—"} · {interval || "—"}
+          </div>
+          <div style={{ fontSize: "12px", color: "#64748b" }}>
+            Source: {source || "—"} • Powered by{" "}
+            <a
+              href="https://www.tradingview.com/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#0ea5e9", textDecoration: "none" }}
+            >
               TradingView Lightweight Charts
             </a>
           </div>
@@ -436,7 +531,7 @@ const LightweightOhlcWindow: React.FC<LightweightOhlcWindowProps> = ({
       <div
         ref={containerRef}
         style={{
-          position: 'relative',
+          position: "relative",
           flex: 1,
         }}
       >
